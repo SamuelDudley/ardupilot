@@ -1891,6 +1891,20 @@ void GCS_MAVLINK_Plane::handleMessage(mavlink_message_t* msg)
     }
 #endif // MOUNT == ENABLED
 
+    case MAVLINK_MSG_ID_VISION_POSITION_ESTIMATE:
+    {
+        mavlink_vision_position_estimate_t packet;
+        mavlink_msg_vision_position_estimate_decode(msg, &packet);
+        ::printf("Got vision estimate x:%4.2f y:%4.2f z:%4.2f r:%4.2f p:%4.2f y:%4.2f\n",
+            (double)packet.x,
+            (double)packet.y,
+            (double)packet.z,
+            (double)packet.roll,
+            (double)packet.pitch,
+            (double)packet.yaw
+            );
+    }
+
     case MAVLINK_MSG_ID_RADIO:
     case MAVLINK_MSG_ID_RADIO_STATUS:
     {
