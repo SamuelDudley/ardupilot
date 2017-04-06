@@ -72,6 +72,7 @@ bool JSBSim::create_templates(void)
     }
     control_port = 5505 + instance*10;
     fdm_port = 5504 + instance*10;
+    fdm_out_port = 6000 + instance*10;
 
     asprintf(&jsbsim_script, "%s/jsbsim_start_%u.xml", autotest_dir, instance);
     asprintf(&jsbsim_fgout,  "%s/jsbsim_fgout_%u.xml", autotest_dir, instance);
@@ -315,6 +316,15 @@ bool JSBSim::open_fdm_socket(void)
     return true;
 }
 
+/*
+  open fdm socket to flight computer
+ */
+bool JSBSim::open_fdm_output_socket(void)
+{
+    sock_fcfdm.connect("127.0.0.1", fdm_out_port);
+    return true;
+}
+
 
 /*
   decode and send servos
@@ -404,6 +414,8 @@ void JSBSim::recv_fdm(const struct sitl_input &input)
         send_servos(input);
         check_stdout();
     }
+//    sock_fcfdm.send(&fdm, sizeof(fdm)); // hack to send fdm data to flight computer
+
     fdm.ByteSwap();
 
     accel_body = Vector3f(fdm.A_X_pilot, fdm.A_Y_pilot, fdm.A_Z_pilot) * FEET_TO_METERS;
@@ -430,6 +442,7 @@ void JSBSim::recv_fdm(const struct sitl_input &input)
     
     // assume 1kHz for now
     time_now_us += 1000;
+
 }
 
 void JSBSim::drain_control_socket()
@@ -462,6 +475,7 @@ void JSBSim::update(const struct sitl_input &input)
             time_now_us = 1;
             return;
         }
+        open_fdm_output_socket();
         initialised = true;
     }
     send_servos(input);
