@@ -1216,6 +1216,10 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Group: SOAR_
     // @Path: ../libraries/AP_Soaring/AP_Soaring.cpp
     AP_SUBGROUPINFO(soaring_controller, "SOAR_", 8, ParametersG2, SoaringController),
+
+    // @Group: ZED
+    // @Path: ../libraries/AP_ZED/AP_ZED.cpp
+    AP_SUBGROUPINFO(zed, "ZED", 18, ParametersG2, AP_ZED),
   
     AP_GROUPEND
 };

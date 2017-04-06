@@ -54,6 +54,7 @@
 #include <AP_RPM/AP_RPM.h>
 #include <AP_Stats/AP_Stats.h>     // statistics library
 #include <AP_Beacon/AP_Beacon.h>
+#include <AP_ZED/AP_ZED.h>
 
 #include <AP_AdvancedFailsafe/AP_AdvancedFailsafe.h>
 #include <APM_Control/APM_Control.h>
@@ -378,6 +379,9 @@ private:
 
     // receiver RSSI
     uint8_t receiver_rssi;
+
+    // last visual odometry update time
+    uint32_t zed_last_update_ms;
 
     // Ground speed
     // The amount current ground speed is below min ground speed.  Centimeters per second
@@ -1093,6 +1097,8 @@ private:
     void accel_cal_update(void);
     void update_soft_armed();
     void update_soaring();
+    void init_visual_odom();
+    void update_visual_odom();
 
     // support for AP_Avoidance custom flight mode, AVOID_ADSB
     bool avoid_adsb_init(bool ignore_checks);

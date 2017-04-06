@@ -160,6 +160,9 @@ void Plane::init_ardupilot()
     // initialise rangefinder
     init_rangefinder();
 
+    // init visual odometry
+    init_visual_odom();
+
     // initialise battery monitoring
     battery.init();
 

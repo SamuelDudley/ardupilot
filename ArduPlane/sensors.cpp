@@ -167,6 +167,36 @@ void Plane::ice_update(void)
 {
     g2.ice_control.update();
 }
+
+// init visual odometry sensor
+void Plane::init_visual_odom()
+{
+    g2.zed.init();
+}
+
+// update visual odometry sensor
+void Plane::update_visual_odom()
+{
+#if AP_AHRS_NAVEKF_AVAILABLE
+    // check for updates
+    if (g2.zed.enabled() && (g2.zed.get_last_update_ms() != zed_last_update_ms)) {
+        zed_last_update_ms = g2.zed.get_last_update_ms();
+        float time_delta_sec = g2.zed.get_time_delta_usec() / 1000000.0f;
+        EKF3.writeBodyFrameOdom(g2.zed.get_confidence(),
+                                g2.zed.get_position_delta(),
+                                g2.zed.get_angle_delta(),
+                                time_delta_sec,
+                                g2.zed.get_last_update_ms(),
+                                g2.zed.get_pos_offset());
+        // log sensor data
+        DataFlash.Log_Write_VisualOdom(time_delta_sec,
+                                       g2.zed.get_angle_delta(),
+                                       g2.zed.get_position_delta(),
+                                       g2.zed.get_confidence());
+    }
+#endif
+}
+
 // update error mask of sensors and subsystems. The mask
 // uses the MAV_SYS_STATUS_* values from mavlink. If a bit is set
 // then it indicates that the sensor or subsystem is present but
@@ -192,6 +222,9 @@ void Plane::update_sensor_status_flags(void)
         control_sensors_present |= MAV_SYS_STATUS_SENSOR_OPTICAL_FLOW;
     }
 #endif
+    if (g2.zed.enabled()) {
+        control_sensors_present |= MAV_SYS_STATUS_SENSOR_VISION_POSITION;
+    }
     if (geofence_present()) {
         control_sensors_present |= MAV_SYS_STATUS_GEOFENCE;
     }
@@ -311,6 +344,9 @@ void Plane::update_sensor_status_flags(void)
         control_sensors_health |= MAV_SYS_STATUS_SENSOR_OPTICAL_FLOW;
     }
 #endif
+    if (g2.zed.enabled() && !g2.zed.healthy()) {
+        control_sensors_health &= ~MAV_SYS_STATUS_SENSOR_VISION_POSITION;
+    }
     if (!ins.get_gyro_health_all() || !ins.gyro_calibrated_ok_all()) {
         control_sensors_health &= ~MAV_SYS_STATUS_SENSOR_3D_GYRO;
     }

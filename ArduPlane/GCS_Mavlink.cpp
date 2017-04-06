@@ -2123,6 +2123,10 @@ void GCS_MAVLINK_Plane::handleMessage(mavlink_message_t* msg)
         plane.adsb.handle_message(chan, msg);
         break;
 
+    case MAVLINK_MSG_ID_ZED_VISION_POSITION_DELTA:
+        plane.g2.zed.handle_msg(msg);
+        break;
+
     default:
         handle_common_message(msg);
         break;
