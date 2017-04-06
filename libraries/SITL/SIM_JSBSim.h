@@ -43,13 +43,17 @@ private:
     // tcp input control socket to JSBSIm
     SocketAPM sock_control;
 
-    // UDP packets from JSBSim in fgFDM format
+    // UDP input packets from JSBSim in fgFDM format
     SocketAPM sock_fgfdm;
+
+    // UDP output packets from JSBSim in fgFDM format
+    SocketAPM sock_fcfdm{true};
 
     bool initialised;
 
     uint16_t control_port;
     uint16_t fdm_port;
+    uint16_t fdm_out_port;
     char *jsbsim_script;
     char *jsbsim_fgout;
     int jsbsim_stdout;
@@ -72,6 +76,7 @@ private:
     bool start_JSBSim(void);
     bool open_control_socket(void);
     bool open_fdm_socket(void);
+    bool open_fdm_output_socket(void);
     void send_servos(const struct sitl_input &input);
     void recv_fdm(const struct sitl_input &input);
     void check_stdout(void);

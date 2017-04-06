@@ -261,7 +261,8 @@ void SITL_State::_output_to_flightgear(void)
     }
     fdm.ByteSwap();
 
-    fg_socket.send(&fdm, sizeof(fdm));
+//    fg_socket.send(&fdm, sizeof(fdm));
+	fg_socket.send(&sfdm, sizeof(sfdm)); // hack to send useful values to flight computer SITL.h (sitl_fdm)
 }
 
 /*
