@@ -1217,6 +1217,10 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Path: ../libraries/AP_Soaring/AP_Soaring.cpp
     AP_SUBGROUPINFO(soaring_controller, "SOAR_", 8, ParametersG2, SoaringController),
 
+    // @Group: BCN
+    // @Path: ../libraries/AP_Beacon/AP_Beacon.cpp
+    AP_SUBGROUPINFO(beacon, "BCN", 14, ParametersG2, AP_Beacon),
+
     // @Group: ZED
     // @Path: ../libraries/AP_ZED/AP_ZED.cpp
     AP_SUBGROUPINFO(zed, "ZED", 18, ParametersG2, AP_ZED),
@@ -1225,6 +1229,7 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
 };
 
 ParametersG2::ParametersG2(void) :
+	beacon(plane.serial_manager),
     ice_control(plane.rpm_sensor, plane.ahrs),
     soaring_controller(plane.ahrs, plane.TECS_controller, plane.aparm)
 {

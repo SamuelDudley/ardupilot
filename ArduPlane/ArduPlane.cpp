@@ -43,6 +43,7 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(gcs_retry_deferred,     50,    500),
     SCHED_TASK(update_GPS_50Hz,        50,    300),
     SCHED_TASK(update_GPS_10Hz,        10,    400),
+	SCHED_TASK(update_beacon,          50,     50),
 	SCHED_TASK(update_visual_odom,    400,     50),
     SCHED_TASK(navigate,               10,    150),
     SCHED_TASK(update_compass,         10,    200),
@@ -289,6 +290,7 @@ void Plane::update_logging2(void)
 {
     if (should_log(MASK_LOG_CTUN))
         Log_Write_Control_Tuning();
+    	Log_Write_Beacon();
     
     if (should_log(MASK_LOG_NTUN))
         Log_Write_Nav_Tuning();

@@ -168,6 +168,18 @@ void Plane::ice_update(void)
     g2.ice_control.update();
 }
 
+// init beacons used for non-gps position estimates
+void Plane::init_beacon()
+{
+    g2.beacon.init();
+}
+
+// update beacons
+void Plane::update_beacon()
+{
+    g2.beacon.update();
+}
+
 // init visual odometry sensor
 void Plane::init_visual_odom()
 {

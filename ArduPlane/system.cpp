@@ -160,6 +160,9 @@ void Plane::init_ardupilot()
     // initialise rangefinder
     init_rangefinder();
 
+    // init beacons used for non-gps position estimation
+    init_beacon();
+
     // init visual odometry
     init_visual_odom();
 
@@ -215,6 +218,9 @@ void Plane::init_ardupilot()
 
     // give AHRS the airspeed sensor
     ahrs.set_airspeed(&airspeed);
+
+    // give AHRS the rnage beacon sensor
+    ahrs.set_beacon(&g2.beacon);
 
     // GPS Initialization
     gps.init(&DataFlash, serial_manager);

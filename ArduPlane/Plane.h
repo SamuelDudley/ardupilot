@@ -841,6 +841,7 @@ private:
     void Log_Write_Baro(void);
     void Log_Write_Airspeed(void);
     void Log_Write_Home_And_Origin();
+    void Log_Write_Beacon();
     void Log_Write_Vehicle_Startup_Messages();
     void Log_Read(uint16_t log_num, int16_t start_page, int16_t end_page);
     void start_logging();
@@ -1097,6 +1098,8 @@ private:
     void accel_cal_update(void);
     void update_soft_armed();
     void update_soaring();
+    void init_beacon();
+    void update_beacon();
     void init_visual_odom();
     void update_visual_odom();
 

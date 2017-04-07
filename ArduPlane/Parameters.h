@@ -546,8 +546,12 @@ public:
     // ArduSoar parameters
     SoaringController soaring_controller;
 
+    // beacon (non-GPS positioning) library
+    AP_Beacon beacon;
+
     // ZED 3D camera
     AP_ZED zed;
+
 };
 
 extern const AP_Param::Info var_info[];
