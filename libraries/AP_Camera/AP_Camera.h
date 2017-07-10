@@ -36,6 +36,7 @@ public:
     AP_Camera(AP_Relay *obj_relay) :
         _trigger_counter(0),    // count of number of cycles shutter has been held open
         _image_index(0)
+
     {
 		AP_Param::setup_object_defaults(this, var_info);
         _apm_relay = obj_relay;
@@ -44,6 +45,9 @@ public:
     // single entry point to take pictures
     //  set send_mavlink_msg to true to send DO_DIGICAM_CONTROL message to all components
     void            trigger_pic(bool send_mavlink_msg);
+
+    // feedback only camera handling
+    bool            feedback_only(void);
 
     // de-activate the trigger after some delay, but without using a delay() function
     // should be called at 50hz from main program
@@ -88,6 +92,7 @@ private:
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4
     static void     capture_callback(void *context, uint32_t chan_index,
                                      hrt_abstime edge_time, uint32_t edge_state, uint32_t overflow);
+    static uint64_t _camera_trigger_time; //
 #endif
     
     AP_Float        _trigg_dist;        // distance between trigger points (meters)

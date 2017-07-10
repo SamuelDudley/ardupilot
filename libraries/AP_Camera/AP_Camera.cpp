@@ -101,6 +101,8 @@ extern const AP_HAL::HAL& hal;
   static trigger var for PX4 callback
  */
 volatile bool   AP_Camera::_camera_triggered;
+uint64_t AP_Camera::_camera_trigger_time;
+
 
 /// Servo operated camera
 void
@@ -125,6 +127,21 @@ AP_Camera::relay_pic()
     // leave a message that it should be active for this many loops (assumes 50hz loops)
     _trigger_counter = constrain_int16(_trigger_duration*5,0,255);
 }
+
+/// used for cameras that are not being triggered by the AP
+bool
+AP_Camera::feedback_only()
+{
+	// setup the feedback pin to wait for event
+	setup_feedback_callback();
+	if (check_trigger_pin()) {
+		// registered that a photo was taken (via feedback pin)
+		_image_index++;
+		return true;
+	}
+	return false;
+}
+
 
 /// single entry point to take pictures
 ///  set send_mavlink_msg to true to send DO_DIGICAM_CONTROL message to all components
@@ -262,7 +279,7 @@ void AP_Camera::send_feedback(mavlink_channel_t chan, AP_GPS &gps, const AP_AHRS
     }
 
     mavlink_msg_camera_feedback_send(chan, 
-        gps.time_epoch_usec(),
+        _camera_trigger_time, // replace gps.time_epoch_usec() with microcontroller trigger time
         0, 0, _image_index,
         current_loc.lat, current_loc.lng,
         altitude/100.0f, altitude_rel/100.0f,
@@ -352,7 +369,8 @@ bool AP_Camera::check_trigger_pin(void)
 void AP_Camera::capture_callback(void *context, uint32_t chan_index,
                                  hrt_abstime edge_time, uint32_t edge_state, uint32_t overflow)
 {
-    _camera_triggered = true;    
+    _camera_triggered = true;
+    _camera_trigger_time = AP_HAL::micros64(); // store the time when the camera was triggered
 }
 #endif
 
