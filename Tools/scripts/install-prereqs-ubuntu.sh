@@ -9,7 +9,6 @@ PX4_PKGS="python-argparse openocd flex bison libncurses5-dev \
           autoconf texinfo libftdi-dev zlib1g-dev \
           zip genromfs python-empy cmake cmake-data"
 ARM_LINUX_PKGS="g++-arm-linux-gnueabihf pkg-config-arm-linux-gnueabihf"
-SITL_PKGS="libtool libxml2-dev libxslt1-dev python-dev python-pip python-setuptools python-matplotlib python-serial python-scipy python-opencv python-numpy python-pyparsing realpath"
 ASSUME_YES=false
 
 UBUNTU_YEAR="15" # Ubuntu Year were changes append
@@ -87,7 +86,6 @@ sudo usermod -a -G dialout $USER
 $APT_GET remove modemmanager
 $APT_GET update
 $APT_GET install $BASE_PKGS $SITL_PKGS $PX4_PKGS $ARM_LINUX_PKGS
-sudo pip2 -q install -U $PYTHON_PKGS
 
 if [ ! -d $OPT/$ARM_ROOT ]; then
     (

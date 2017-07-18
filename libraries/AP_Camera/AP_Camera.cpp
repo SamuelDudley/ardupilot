@@ -269,22 +269,27 @@ bool AP_Camera::control(float session, float zoom_pos, float zoom_step, float fo
  */
 void AP_Camera::send_feedback(mavlink_channel_t chan, AP_GPS &gps, const AP_AHRS &ahrs, const Location &current_loc)
 {
-    float altitude, altitude_rel;
-    if (current_loc.flags.relative_alt) {
-        altitude = current_loc.alt+ahrs.get_home().alt;
-        altitude_rel = current_loc.alt;
-    } else {
-        altitude = current_loc.alt;
-        altitude_rel = current_loc.alt - ahrs.get_home().alt;
-    }
+//    float altitude, altitude_rel;
+//    if (current_loc.flags.relative_alt) {
+//        altitude = current_loc.alt+ahrs.get_home().alt;
+//        altitude_rel = current_loc.alt;
+//    } else {
+//        altitude = current_loc.alt;
+//        altitude_rel = current_loc.alt - ahrs.get_home().alt;
+//    }
+    mavlink_msg_machine_vision_feedback_send(chan,
+    		0, // companion computer time (will be filled in when received)
+			_camera_trigger_time, // microcontroller trigger time
+			_image_index,
+			122);
 
-    mavlink_msg_camera_feedback_send(chan, 
-        _camera_trigger_time, // replace gps.time_epoch_usec() with microcontroller trigger time
-        0, 0, _image_index,
-        current_loc.lat, current_loc.lng,
-        altitude/100.0f, altitude_rel/100.0f,
-        ahrs.roll_sensor/100.0f, ahrs.pitch_sensor/100.0f, ahrs.yaw_sensor/100.0f,
-        0.0f,CAMERA_FEEDBACK_PHOTO);
+//    mavlink_msg_camera_feedback_send(chan,
+//        _camera_trigger_time, // replace gps.time_epoch_usec() with microcontroller trigger time
+//		122, 0, _image_index, // send msg to companion computer
+//        current_loc.lat, current_loc.lng,
+//        altitude/100.0f, altitude_rel/100.0f,
+//        ahrs.roll_sensor/100.0f, ahrs.pitch_sensor/100.0f, ahrs.yaw_sensor/100.0f,
+//        0.0f,CAMERA_FEEDBACK_PHOTO);
 }
 
 

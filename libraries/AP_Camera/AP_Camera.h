@@ -89,10 +89,11 @@ private:
     void            relay_pic();        // basic relay activation
     void            feedback_pin_timer();
     void            setup_feedback_callback(void);
+
+    static uint64_t _camera_trigger_time;
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4
     static void     capture_callback(void *context, uint32_t chan_index,
                                      hrt_abstime edge_time, uint32_t edge_state, uint32_t overflow);
-    static uint64_t _camera_trigger_time; //
 #endif
     
     AP_Float        _trigg_dist;        // distance between trigger points (meters)
