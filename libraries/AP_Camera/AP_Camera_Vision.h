@@ -12,6 +12,16 @@
 
 #include "AP_Camera.h"
 #include <AP_AHRS/AP_AHRS.h>
+#include <AP_HAL/AP_HAL.h>
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
+#include <drivers/drv_input_capture.h>
+#include <drivers/drv_pwm_output.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+
 
 // with a 400Hz AHRS update rate we expect the data to be no older than 2500us
 // TODO assess the logged values to determine a suitable default time
@@ -25,7 +35,7 @@ public:
                             uint32_t _log_camera_bit,
                             const struct Location &_loc,
                             const AP_GPS &_gps,
-                            AP_AHRS &_ahrs) {
+                            const AP_AHRS &_ahrs) {
         return AP_Camera_Vision{obj_relay, _log_camera_bit, _loc, _gps, _ahrs};
     }
 
@@ -39,17 +49,16 @@ public:
     // check to see if a trigger event has occurred and action accordingly
     void update_trigger();
 
-
-
     static const struct AP_Param::GroupInfo var_info[];
 
 private:
     AP_Camera_Vision(AP_Relay *obj_relay, uint32_t _log_camera_bit,
-            const struct Location &_loc, const AP_GPS &_gps, AP_AHRS &_ahrs)
+            const struct Location &_loc, const AP_GPS &_gps, const AP_AHRS &_ahrs)
             : AP_Camera(obj_relay, _log_camera_bit, _loc, _gps, _ahrs)
     {
         AP_Param::setup_object_defaults(this, var_info);
         _last_gcs_feedback_time = 0;
+        _temp = &ahrs;
     }
 
     // determine if the GCS should be informed about this image capture event
@@ -64,11 +73,12 @@ private:
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4
     // overloaded function from the standard AP_Camera class
     // called on hardware trigger event
-    void capture_callback(void *context, uint32_t chan_index, hrt_abstime edge_time, uint32_t edge_state, uint32_t overflow);
+    static void capture_callback(void *context, uint32_t chan_index, hrt_abstime edge_time, uint32_t edge_state, uint32_t overflow);
+//    void setup_feedback_callback(void);
 #endif
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
-    void snapshot_ahrs(void);
+    static void snapshot_ahrs(void);
 #endif
 
     // component ID of the CC which will receive the AHRS summary MAVLink message
@@ -83,10 +93,11 @@ private:
     // the cameras local copy of the AHRS summary structure
     AP_AHRS::AHRS_Summary _ahrs_summary;
 
-    AP_AHRS::AHRS_Summary *_current_summary;
+    static AP_AHRS::AHRS_Summary *_current_summary;
 
     // the time that the last hardware trigger event occurred
-    uint64_t _camera_feedback_time;
+    static uint64_t _camera_feedback_time;
+    const static AP_AHRS *_temp;
 
     // the absolute difference between the camera feedback time and the AHRS sample time
     AP_Int32 _ahrs_sample_age;
@@ -94,7 +105,7 @@ private:
     // maximum rate at which the GCS will receive camera feedback infomation
     AP_Float _gcs_feedback_hz;
 
-    volatile bool _ahrs_data_good;
+    static volatile bool _ahrs_data_good;
 
     uint8_t _flags;
 

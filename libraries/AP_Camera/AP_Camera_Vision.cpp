@@ -41,6 +41,13 @@ const AP_Param::GroupInfo AP_Camera_Vision::var_info[] = {
     AP_GROUPEND
 };
 
+uint64_t AP_Camera_Vision::_camera_feedback_time;
+AP_AHRS::AHRS_Summary *AP_Camera_Vision::_current_summary;
+AP_AHRS *AP_Camera_Vision::_temp;
+volatile bool AP_Camera_Vision::_ahrs_data_good;
+
+extern const AP_HAL::HAL& hal;
+
 // check the camera trigger status and action
 // this function is called by Arduplane.cpp at 50Hz by default but needs to be called
 // at 2 x frame rate of camera to ensure all frames are reported
@@ -141,7 +148,7 @@ void AP_Camera_Vision::read_ahrs_summary(void) {
     } else {
         // the AHRS summary was not ready to read
         _ahrs_data_good = false;
-        ahrs.summary.increment_read_error();
+//        ahrs.summary.increment_read_error(); !!! access of AHRS is a no no..
     }
     // release the summary for writing
     _current_summary->set_ready_to_write(true);
@@ -175,7 +182,8 @@ void AP_Camera_Vision::snapshot_ahrs(void) {
     _camera_feedback_time = AP_HAL::micros64();
     _camera_triggered = true;
     // snapshot the memory address of the summary
-    _current_summary = ahrs.summary.current_summary;
+    _current_summary = _temp->summary.current_summary;
+//    _current_summary = ahrs.summary.current_summary; // !!! access of AHRS is a no no..
     // make sure the AHRS summary is valid
     if (_current_summary != nullptr) {
         // lock the summary from being over written

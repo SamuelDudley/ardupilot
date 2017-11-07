@@ -644,17 +644,17 @@ public:
         }
 
         // return the number of nodes in the summary list
-        uint8_t get_node_count(void) {
+        uint8_t get_node_count(void) const {
             return _node_count;
         }
 
         // return the current number of write
-        uint8_t get_write_error_count(void) {
+        uint8_t get_write_error_count(void) const {
             return _write_error_count;
         }
 
         // return the current number of read errors
-        uint8_t get_read_error_count(void) {
+        uint8_t get_read_error_count(void) const {
             return _read_error_count;
         }
 
