@@ -35,7 +35,7 @@ public:
                             uint32_t _log_camera_bit,
                             const struct Location &_loc,
                             const AP_GPS &_gps,
-                            const AP_AHRS &_ahrs) {
+                            AP_AHRS &_ahrs) {
         return AP_Camera_Vision{obj_relay, _log_camera_bit, _loc, _gps, _ahrs};
     }
 
@@ -58,7 +58,7 @@ private:
     {
         AP_Param::setup_object_defaults(this, var_info);
         _last_gcs_feedback_time = 0;
-        _temp = &ahrs;
+        _summary_list = &ahrs.summary;
     }
 
     // determine if the GCS should be informed about this image capture event
@@ -95,9 +95,10 @@ private:
 
     static AP_AHRS::AHRS_Summary *_current_summary;
 
+    static AP_AHRS::AHRS_SummaryList *_summary_list;
+
     // the time that the last hardware trigger event occurred
     static uint64_t _camera_feedback_time;
-    const static AP_AHRS *_temp;
 
     // the absolute difference between the camera feedback time and the AHRS sample time
     AP_Int32 _ahrs_sample_age;

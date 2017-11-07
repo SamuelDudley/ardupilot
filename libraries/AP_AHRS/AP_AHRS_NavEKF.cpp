@@ -29,6 +29,8 @@
 
 extern const AP_HAL::HAL& hal;
 
+AP_AHRS::AHRS_SummaryList AP_AHRS::summary;
+
 // constructor
 AP_AHRS_NavEKF::AP_AHRS_NavEKF(AP_InertialSensor &ins, AP_Baro &baro, AP_GPS &gps, NavEKF2 &_EKF2, NavEKF3 &_EKF3, Flags flags) :
     AP_AHRS_DCM(ins, baro, gps),
@@ -132,9 +134,6 @@ void AP_AHRS_NavEKF::update_summary(void) {
             active_summary->ahrs_update_time = AP_HAL::micros64();
             active_summary->healthy = healthy();
             active_summary->have_inertial_nav = have_inertial_nav();
-            active_summary->roll = roll;
-            active_summary->pitch = pitch;
-            active_summary->yaw = yaw;
             active_summary->ekf_type = active_EKF_type();
             get_location(active_summary->location);
             if (active_summary->have_inertial_nav) {

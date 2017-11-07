@@ -565,9 +565,6 @@ public:
         uint64_t ahrs_update_time;
         bool healthy;
         bool have_inertial_nav;
-        float roll;
-        float pitch;
-        float yaw;
         Location location;
         Vector3f velocity;
         Location home;
@@ -684,7 +681,7 @@ public:
     };
 
     // create an AHRS summary list
-    AHRS_SummaryList summary;
+    static AHRS_SummaryList summary;
 
 protected:
     AHRS_VehicleClass _vehicle_class;
