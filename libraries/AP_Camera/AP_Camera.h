@@ -16,6 +16,7 @@
 
 #define AP_CAMERA_TRIGGER_TYPE_SERVO                0
 #define AP_CAMERA_TRIGGER_TYPE_RELAY                1
+#define AP_CAMERA_TRIGGER_TYPE_FEEDBACK_ONLY        -1
 
 #define AP_CAMERA_TRIGGER_DEFAULT_TRIGGER_TYPE  AP_CAMERA_TRIGGER_TYPE_SERVO    // default is to use servo to trigger camera
 
@@ -25,6 +26,9 @@
 #define AP_CAMERA_SERVO_OFF_PWM             1100    // default PWM value to move servo to when shutter is deactivated
 
 #define AP_CAMERA_FEEDBACK_DEFAULT_FEEDBACK_PIN -1  // default is to not use camera feedback pin
+
+#define AP_CAMERA_DEFAULT_FEEDBACK_COMPONENT_ID   191
+#define AP_CAMERA_DEFAULT_GCS_FEEDBACK_HZ         1 // 1 message per second
 
 /// @class	Camera
 /// @brief	Object managing a Photo or video camera
@@ -68,10 +72,9 @@ public:
 
     static const struct AP_Param::GroupInfo        var_info[];
 
-protected:
+private:
     AP_Camera(AP_Relay *obj_relay, uint32_t _log_camera_bit, const struct Location &_loc, const AP_GPS &_gps, const AP_AHRS &_ahrs)
         : _trigger_counter(0) // count of number of cycles shutter has been held open
-        , _image_index(0)
         , log_camera_bit(_log_camera_bit)
         , current_loc(_loc)
         , gps(_gps)
@@ -81,13 +84,15 @@ protected:
         _apm_relay = obj_relay;
     }
 
-    AP_Int8         _trigger_type;      // 0:Servo,1:Relay
+    AP_Int8         _trigger_type;      // 0:Servo,1:Relay,-1:Feedback Only
     AP_Int8         _trigger_duration;  // duration in 10ths of a second that the camera shutter is held open
     AP_Int8         _relay_on;          // relay value to trigger camera
     AP_Int16        _servo_on_pwm;      // PWM value to move servo to when shutter is activated
     AP_Int16        _servo_off_pwm;     // PWM value to move servo to when shutter is deactivated
     uint8_t         _trigger_counter;   // count of number of cycles shutter has been held open
     AP_Relay       *_apm_relay;         // pointer to relay object from the base class Relay.
+    AP_Float        _gcs_feedback_hz;   // maximum rate at which the GCS will receive camera feedback information
+    AP_Int16 _vision_feedback_target_component; // component ID of the CC which will receive the AHRS summary MAVLink message
 
     void            servo_pic();        // Servo operated camera
     void            relay_pic();        // basic relay activation
@@ -103,7 +108,7 @@ protected:
     AP_Int16        _max_roll;          // Maximum acceptable roll angle when trigging camera
     uint32_t        _last_photo_time;   // last time a photo was taken
     struct Location _last_location;
-    uint16_t        _image_index;       // number of pictures taken since boot
+    static uint16_t _image_index;       // number of pictures taken since boot
 
     // pin number for accurate camera feedback messages
     AP_Int8         _feedback_pin;
@@ -128,6 +133,8 @@ protected:
     // should be called at 50hz from main program
     void trigger_pic_cleanup();
 
+    void datalog(void);
+
     // check if trigger pin has fired
     bool check_trigger_pin(void);
 
@@ -138,6 +145,9 @@ protected:
     static void snapshot_ahrs(void);
 #endif
 
+    // determine if the GCS should be informed about this image capture event
+    bool should_send_feedback_to_gcs(void);
+
     // send AHRS summary MAVLink message to attached components
     void send_feedback_ahrs(void);
 
@@ -147,7 +157,9 @@ protected:
     // the time that the last hardware trigger event occurred
     static uint64_t _camera_feedback_time;
 
-    static volatile bool _ahrs_data_good;
+    uint32_t _last_gcs_feedback_time;
+
+
 
 
 

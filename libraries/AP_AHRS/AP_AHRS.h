@@ -578,6 +578,9 @@ public:
     static AHRS_Summary summary[];
     static uint8_t summary_index;
 
+    static AHRS_Summary summary_test[];
+    static uint8_t summary_index_test;
+
 protected:
     AHRS_VehicleClass _vehicle_class;
 

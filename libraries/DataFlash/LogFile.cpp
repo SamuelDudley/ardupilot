@@ -1455,7 +1455,7 @@ void DataFlash_Class::Log_Write_Camera_Vision1(const AP_AHRS::AHRS_Summary &ahrs
         LOG_PACKET_HEADER_INIT(LOG_CAMERA_VISION_MSG1),
         time_us         : AP_HAL::micros64(),
         feedback_time_us: (uint64_t)feedback_time,
-        ahrs_time_us    : (uint64_t)ahrs_summary.ahrs_update_time,
+        ahrs_time_us    : ahrs_summary.ahrs_update_time,
         image_index     : (uint16_t)image_index,
         latitude        : ahrs_summary.location.lat,
         longitude       : ahrs_summary.location.lng,

@@ -19,7 +19,7 @@ const AP_Param::GroupInfo AP_Camera::var_info[] = {
     // @Param: TRIGG_TYPE
     // @DisplayName: Camera shutter (trigger) type
     // @Description: how to trigger the camera to take a picture
-    // @Values: 0:Servo,1:Relay
+    // @Values: -1:None,0:Servo,1:Relay
     // @User: Standard
     AP_GROUPINFO("TRIGG_TYPE",  0, AP_Camera, _trigger_type, AP_CAMERA_TRIGGER_DEFAULT_TRIGGER_TYPE),
 
@@ -92,6 +92,20 @@ const AP_Param::GroupInfo AP_Camera::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("FEEDBACK_POL",  9, AP_Camera, _feedback_polarity, 1),
     
+    // @Param: FEEDBACK_ID
+    // @DisplayName: Camera feedback target component ID
+    // @Description: Target ID of the component which handles camera feedback AHRS MAVLink messages
+    // @User: Standard
+    AP_GROUPINFO("FEEDBACK_ID",  10, AP_Camera, _vision_feedback_target_component, AP_CAMERA_DEFAULT_FEEDBACK_COMPONENT_ID),
+
+    // @Param: MAX_GCS_RATE
+    // @DisplayName: Max camera feedback message Hz
+    // @Description: Maximum rate that camera feedback messages will be sent to the GCS (Hz). 0 = suppress all feedback messages to the GCS, -1 = send all feedback messages to the GCS
+    // @Units: Hz
+    // @Range: -1 100
+    // @User: Advanced
+    AP_GROUPINFO("MAX_GCS_RATE", 11, AP_Camera, _gcs_feedback_hz, AP_CAMERA_DEFAULT_GCS_FEEDBACK_HZ),
+
     AP_GROUPEND
 };
 
@@ -103,11 +117,10 @@ extern const AP_HAL::HAL& hal;
 volatile bool AP_Camera::_camera_triggered;
 uint64_t AP_Camera::_camera_feedback_time;
 AP_AHRS::AHRS_Summary AP_Camera::_ahrs_summary;
-volatile bool AP_Camera::_ahrs_data_good;
+uint16_t AP_Camera::_image_index = 0;
 
-/// Servo operated camera
-void
-AP_Camera::servo_pic()
+// Servo operated camera
+void AP_Camera::servo_pic()
 {
 	SRV_Channels::set_output_pwm(SRV_Channel::k_cam_trigger, _servo_on_pwm);
 
@@ -115,10 +128,8 @@ AP_Camera::servo_pic()
 	_trigger_counter = constrain_int16(_trigger_duration*5,0,255);
 }
 
-/// basic relay activation
-void
-AP_Camera::relay_pic()
-{
+// basic relay activation
+void AP_Camera::relay_pic() {
     if (_relay_on) {
         _apm_relay->on(0);
     } else {
@@ -129,10 +140,9 @@ AP_Camera::relay_pic()
     _trigger_counter = constrain_int16(_trigger_duration*5,0,255);
 }
 
-/// single entry point to take pictures
-///  set send_mavlink_msg to true to send DO_DIGICAM_CONTROL message to all components
-void AP_Camera::trigger_pic()
-{
+// single entry point to take pictures
+//  set send_mavlink_msg to true to send DO_DIGICAM_CONTROL message to all components
+void AP_Camera::trigger_pic() {
     setup_feedback_callback();
 
     _image_index++;
@@ -149,11 +159,9 @@ void AP_Camera::trigger_pic()
     log_picture();
 }
 
-/// de-activate the trigger after some delay, but without using a delay() function
-/// should be called at 50hz
-void
-AP_Camera::trigger_pic_cleanup()
-{
+// de-activate the trigger after some delay, but without using a delay() function
+// should be called at 50hz
+void AP_Camera::trigger_pic_cleanup() {
     if (_trigger_counter) {
         _trigger_counter--;
     } else {
@@ -168,22 +176,21 @@ AP_Camera::trigger_pic_cleanup()
                     _apm_relay->on(0);
                 }
                 break;
+            case AP_CAMERA_TRIGGER_TYPE_FEEDBACK_ONLY:
+                break;
         }
     }
 }
 
 /// decode deprecated MavLink message that controls camera.
-void
-AP_Camera::control_msg(const mavlink_message_t* msg)
-{
+void AP_Camera::control_msg(const mavlink_message_t* msg) {
     __mavlink_digicam_control_t packet;
     mavlink_msg_digicam_control_decode(msg, &packet);
 
     control(packet.session, packet.zoom_pos, packet.zoom_step, packet.focus_lock, packet.shot, packet.command_id);
 }
 
-void AP_Camera::configure(float shooting_mode, float shutter_speed, float aperture, float ISO, float exposure_type, float cmd_id, float engine_cutoff_time)
-{
+void AP_Camera::configure(float shooting_mode, float shutter_speed, float aperture, float ISO, float exposure_type, float cmd_id, float engine_cutoff_time) {
     // we cannot process the configure command so convert to mavlink message
     // and send to all components in case they and process it
 
@@ -207,8 +214,7 @@ void AP_Camera::configure(float shooting_mode, float shutter_speed, float apertu
     GCS_MAVLINK::send_to_components(&msg);
 }
 
-void AP_Camera::control(float session, float zoom_pos, float zoom_step, float focus_lock, float shooting_cmd, float cmd_id)
-{
+void AP_Camera::control(float session, float zoom_pos, float zoom_step, float focus_lock, float shooting_cmd, float cmd_id) {
     // take picture
     if (is_equal(shooting_cmd,1.0f)) {
         trigger_pic();
@@ -233,11 +239,23 @@ void AP_Camera::control(float session, float zoom_pos, float zoom_step, float fo
     GCS_MAVLINK::send_to_components(&msg);
 }
 
-/*
-  Send camera feedback to the GCS
- */
-void AP_Camera::send_feedback(mavlink_channel_t chan)
-{
+bool AP_Camera::should_send_feedback_to_gcs(void) {
+    if (is_negative(_gcs_feedback_hz)) {
+        return true;
+    } else if (is_zero(_gcs_feedback_hz)) {
+        // handle the zero case here to avoid the divide by zero in the next case
+        return false;
+    } else if (AP_HAL::millis() - _last_gcs_feedback_time > (1.0/_gcs_feedback_hz)*1000) {
+        // sufficient time has passed since we last sent a msg to the GCS
+       return true;
+    } else {
+        // insufficient time has passed, don't send a message to the GCS this image
+       return false;
+    }
+}
+
+// send camera feedback to the GCS
+void AP_Camera::send_feedback(mavlink_channel_t chan) {
     float altitude, altitude_rel;
     if (current_loc.flags.relative_alt) {
         altitude = current_loc.alt+ahrs.get_home().alt;
@@ -262,26 +280,26 @@ void AP_Camera::send_feedback_ahrs() {
     mavlink_message_t msg;
     mavlink_camera_feedback_ahrs_t camera_feedback_ahrs = { };
 
-    camera_feedback_ahrs.trigger_time = _camera_feedback_time;
-    camera_feedback_ahrs.sample_time = _ahrs_summary.ahrs_update_time;
-    camera_feedback_ahrs.x = _ahrs_summary.ned_pos_rel_home.x;
-    camera_feedback_ahrs.y = _ahrs_summary.ned_pos_rel_home.y;
-    camera_feedback_ahrs.z = _ahrs_summary.ned_pos_rel_home.z;
-    camera_feedback_ahrs.vx = _ahrs_summary.velocity.x;
-    camera_feedback_ahrs.vy = _ahrs_summary.velocity.y;
-    camera_feedback_ahrs.vz = _ahrs_summary.velocity.z;
-    camera_feedback_ahrs.q1 = _ahrs_summary.quat.q1;
-    camera_feedback_ahrs.q2 = _ahrs_summary.quat.q2;
-    camera_feedback_ahrs.q3 = _ahrs_summary.quat.q3;
-    camera_feedback_ahrs.q4 = _ahrs_summary.quat.q4;
-    camera_feedback_ahrs.home_lat = _ahrs_summary.home.lat;
-    camera_feedback_ahrs.home_lon = _ahrs_summary.home.lng;
-    camera_feedback_ahrs.home_alt = _ahrs_summary.home.alt;
-    camera_feedback_ahrs.lat = _ahrs_summary.location.lat;
-    camera_feedback_ahrs.lon = _ahrs_summary.location.lng;
-    camera_feedback_ahrs.alt = _ahrs_summary.location.alt;
     camera_feedback_ahrs.img_idx = _image_index;
-    camera_feedback_ahrs.target_component = 191;
+    camera_feedback_ahrs.trigger_time = _camera_feedback_time;
+    camera_feedback_ahrs.sample_time = AP_Camera::_ahrs_summary.ahrs_update_time;
+    camera_feedback_ahrs.x = AP_Camera::_ahrs_summary.ned_pos_rel_home.x;
+    camera_feedback_ahrs.y = AP_Camera::_ahrs_summary.ned_pos_rel_home.y;
+    camera_feedback_ahrs.z = AP_Camera::_ahrs_summary.ned_pos_rel_home.z;
+    camera_feedback_ahrs.vx = AP_Camera::_ahrs_summary.velocity.x;
+    camera_feedback_ahrs.vy = AP_Camera::_ahrs_summary.velocity.y;
+    camera_feedback_ahrs.vz = AP_Camera::_ahrs_summary.velocity.z;
+    camera_feedback_ahrs.q1 = AP_Camera::_ahrs_summary.quat.q1;
+    camera_feedback_ahrs.q2 = AP_Camera::_ahrs_summary.quat.q2;
+    camera_feedback_ahrs.q3 = AP_Camera::_ahrs_summary.quat.q3;
+    camera_feedback_ahrs.q4 = AP_Camera::_ahrs_summary.quat.q4;
+    camera_feedback_ahrs.home_lat = AP_Camera::_ahrs_summary.home.lat;
+    camera_feedback_ahrs.home_lon = AP_Camera::_ahrs_summary.home.lng;
+    camera_feedback_ahrs.home_alt = AP_Camera::_ahrs_summary.home.alt;
+    camera_feedback_ahrs.lat = AP_Camera::_ahrs_summary.location.lat;
+    camera_feedback_ahrs.lon = AP_Camera::_ahrs_summary.location.lng;
+    camera_feedback_ahrs.alt = AP_Camera::_ahrs_summary.location.alt;
+    camera_feedback_ahrs.target_component = _vision_feedback_target_component;
 
     // encode camera feedback ahrs into MAVLink msg
     mavlink_msg_camera_feedback_ahrs_encode(0, 0, &msg, &camera_feedback_ahrs);
@@ -291,10 +309,10 @@ void AP_Camera::send_feedback_ahrs() {
 }
 
 
-/*  update; triggers by distance moved
+/*
+ update; triggers by distance moved
 */
-void AP_Camera::update()
-{
+void AP_Camera::update() {
     if (gps.status() < AP_GPS::GPS_OK_FIX_3D) {
         return;
     }
@@ -334,8 +352,7 @@ void AP_Camera::update()
 /*
   check if feedback pin is high
  */
-void AP_Camera::feedback_pin_timer(void)
-{
+void AP_Camera::feedback_pin_timer(void) {
     int8_t dpin = hal.gpio->analogPinToDigitalPin(_feedback_pin);
     if (dpin == -1) {
         return;
@@ -358,8 +375,7 @@ void AP_Camera::feedback_pin_timer(void)
 /*
   check if camera has triggered
  */
-bool AP_Camera::check_trigger_pin(void)
-{
+bool AP_Camera::check_trigger_pin(void) {
     if (_camera_triggered) {
         _camera_triggered = false;
         return true;
@@ -422,8 +438,7 @@ failed:
 }
 
 // log_picture - log picture taken and send feedback to GCS
-void AP_Camera::log_picture()
-{
+void AP_Camera::log_picture() {
     DataFlash_Class *df = DataFlash_Class::instance();
     if (df == nullptr) {
         return;
@@ -441,8 +456,7 @@ void AP_Camera::log_picture()
 }
 
 // take_picture - take a picture
-void AP_Camera::take_picture()
-{
+void AP_Camera::take_picture() {
     // take a local picture:
     trigger_pic();
 
@@ -462,16 +476,30 @@ void AP_Camera::take_picture()
 /*
   update camera trigger - 50Hz
  */
-void AP_Camera::update_trigger()
-{
+void AP_Camera::update_trigger() {
+    setup_feedback_callback();
     trigger_pic_cleanup();
     if (check_trigger_pin()) {
-        gcs().send_message(MSG_CAMERA_FEEDBACK);
-        DataFlash_Class *df = DataFlash_Class::instance();
-        if (df != nullptr) {
-            if (df->should_log(log_camera_bit)) {
-                df->Log_Write_Camera(ahrs, gps, current_loc);
-            }
+        if (should_send_feedback_to_gcs()) {
+            gcs().send_message(MSG_CAMERA_FEEDBACK);
+            _last_gcs_feedback_time = AP_HAL::millis();
+        }
+        // send feedback info and AHRS state to the CC
+        send_feedback_ahrs();
+        datalog();
+    }
+}
+
+void AP_Camera::datalog() {
+    // store the image capture info to dataflash
+    DataFlash_Class *df = DataFlash_Class::instance();
+    if (df != nullptr) {
+        if (df->should_log(log_camera_bit)) {
+            // log the AHRS synchronised camera data
+            df->Log_Write_Camera_Vision1(AP_Camera::_ahrs_summary, _camera_feedback_time, _image_index);
+            df->Log_Write_Camera_Vision2(AP_Camera::_ahrs_summary, _camera_feedback_time, _image_index);
+            // log the default camera data
+            df->Log_Write_Camera(ahrs, gps, current_loc);
         }
     }
 }
@@ -479,8 +507,10 @@ void AP_Camera::update_trigger()
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
 void AP_Camera::snapshot_ahrs() {
     _camera_feedback_time = AP_HAL::micros64();
-    _camera_triggered = true;
+    _image_index++;
     // copy the data locally
-    memcpy(&_ahrs_summary, &AP_AHRS::summary[AP_AHRS::summary_index], sizeof(_ahrs_summary));
+    memcpy(&AP_Camera::_ahrs_summary, &AP_AHRS::summary[AP_AHRS::summary_index], sizeof(AP_Camera::_ahrs_summary));
+    // set flag to log data on next update call
+    _camera_triggered = true;
 }
 #endif
