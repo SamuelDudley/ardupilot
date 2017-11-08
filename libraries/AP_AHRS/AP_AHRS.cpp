@@ -19,10 +19,7 @@
 #include <AP_HAL/AP_HAL.h>
 
 AP_AHRS::AHRS_Summary AP_AHRS::summary[2];
-AP_AHRS::AHRS_Summary AP_AHRS::summary_test[2];
-
 uint8_t AP_AHRS::summary_index;
-uint8_t AP_AHRS::summary_index_test = 1;
 
 extern const AP_HAL::HAL& hal;
 
