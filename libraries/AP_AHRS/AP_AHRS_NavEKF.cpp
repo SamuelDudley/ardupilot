@@ -143,7 +143,6 @@ void AP_AHRS_NavEKF::update_summary(void) {
     AP_AHRS::summary_index = idx;
 }
 
-
 void AP_AHRS_NavEKF::update_DCM(bool skip_ins_update)
 {
     // we need to restore the old DCM attitude values as these are
