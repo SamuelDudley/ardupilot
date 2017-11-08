@@ -134,4 +134,21 @@ protected:
     // return true if we are using a feedback pin
     bool using_feedback_pin(void) const { return _feedback_pin > 0; }
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
+    static void snapshot_ahrs(void);
+#endif
+
+    // send AHRS summary MAVLink message to attached components
+    void send_feedback_ahrs(void);
+
+    // the cameras local copy of the AHRS summary structure
+    static AP_AHRS::AHRS_Summary _ahrs_summary;
+
+    // the time that the last hardware trigger event occurred
+    static uint64_t _camera_feedback_time;
+
+    static volatile bool _ahrs_data_good;
+
+
+
 };

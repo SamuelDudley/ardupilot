@@ -100,7 +100,10 @@ extern const AP_HAL::HAL& hal;
 /*
   static trigger var for PX4 callback
  */
-volatile bool   AP_Camera::_camera_triggered;
+volatile bool AP_Camera::_camera_triggered;
+uint64_t AP_Camera::_camera_feedback_time;
+AP_AHRS::AHRS_Summary AP_Camera::_ahrs_summary;
+volatile bool AP_Camera::_ahrs_data_good;
 
 /// Servo operated camera
 void
@@ -253,6 +256,40 @@ void AP_Camera::send_feedback(mavlink_channel_t chan)
         0.0f,CAMERA_FEEDBACK_PHOTO);
 }
 
+// send camera feedback to message to components of this system
+void AP_Camera::send_feedback_ahrs() {
+
+    mavlink_message_t msg;
+    mavlink_camera_feedback_ahrs_t camera_feedback_ahrs = { };
+
+    camera_feedback_ahrs.trigger_time = _camera_feedback_time;
+    camera_feedback_ahrs.sample_time = _ahrs_summary.ahrs_update_time;
+    camera_feedback_ahrs.x = _ahrs_summary.ned_pos_rel_home.x;
+    camera_feedback_ahrs.y = _ahrs_summary.ned_pos_rel_home.y;
+    camera_feedback_ahrs.z = _ahrs_summary.ned_pos_rel_home.z;
+    camera_feedback_ahrs.vx = _ahrs_summary.velocity.x;
+    camera_feedback_ahrs.vy = _ahrs_summary.velocity.y;
+    camera_feedback_ahrs.vz = _ahrs_summary.velocity.z;
+    camera_feedback_ahrs.q1 = _ahrs_summary.quat.q1;
+    camera_feedback_ahrs.q2 = _ahrs_summary.quat.q2;
+    camera_feedback_ahrs.q3 = _ahrs_summary.quat.q3;
+    camera_feedback_ahrs.q4 = _ahrs_summary.quat.q4;
+    camera_feedback_ahrs.home_lat = _ahrs_summary.home.lat;
+    camera_feedback_ahrs.home_lon = _ahrs_summary.home.lng;
+    camera_feedback_ahrs.home_alt = _ahrs_summary.home.alt;
+    camera_feedback_ahrs.lat = _ahrs_summary.location.lat;
+    camera_feedback_ahrs.lon = _ahrs_summary.location.lng;
+    camera_feedback_ahrs.alt = _ahrs_summary.location.alt;
+    camera_feedback_ahrs.img_idx = _image_index;
+    camera_feedback_ahrs.target_component = 191;
+
+    // encode camera feedback ahrs into MAVLink msg
+    mavlink_msg_camera_feedback_ahrs_encode(0, 0, &msg, &camera_feedback_ahrs);
+
+    // send to all components
+    GCS_MAVLINK::send_to_components(&msg);
+}
+
 
 /*  update; triggers by distance moved
 */
@@ -337,7 +374,7 @@ bool AP_Camera::check_trigger_pin(void)
 void AP_Camera::capture_callback(void *context, uint32_t chan_index,
                                  hrt_abstime edge_time, uint32_t edge_state, uint32_t overflow)
 {
-    _camera_triggered = false;
+    snapshot_ahrs();
 }
 #endif
 
@@ -438,3 +475,12 @@ void AP_Camera::update_trigger()
         }
     }
 }
+
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
+void AP_Camera::snapshot_ahrs() {
+    _camera_feedback_time = AP_HAL::micros64();
+    _camera_triggered = true;
+    // copy the data locally
+    memcpy(&_ahrs_summary, &AP_AHRS::summary[AP_AHRS::summary_index], sizeof(_ahrs_summary));
+}
+#endif

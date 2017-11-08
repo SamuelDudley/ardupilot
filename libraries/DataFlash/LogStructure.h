@@ -546,7 +546,6 @@ struct PACKED log_Camera_Vision1 {
     uint64_t time_us;
     uint64_t feedback_time_us;
     uint64_t ahrs_time_us;
-    uint8_t  feedback_flags;
     uint16_t image_index;
     int32_t  latitude;
     int32_t  longitude;
@@ -563,7 +562,6 @@ struct PACKED log_Camera_Vision2 {
     LOG_PACKET_HEADER;
     uint64_t time_us;
     uint64_t feedback_time_us;
-    uint8_t  feedback_flags;
     uint16_t image_index;
     float  north_velocity;
     float  east_velocity;
@@ -572,9 +570,6 @@ struct PACKED log_Camera_Vision2 {
     float  q2;
     float  q3;
     float  q4;
-    int8_t ekf_type;
-    uint8_t read_errors;
-    uint8_t write_errors;
 };
 
 struct PACKED log_Attitude {
@@ -1089,9 +1084,9 @@ Format characters in the format string for binary log messages
     { LOG_CAMERA_MSG, sizeof(log_Camera), \
       "CAM", "QIHLLeeeccC","TimeUS,GPSTime,GPSWeek,Lat,Lng,Alt,RelAlt,GPSAlt,Roll,Pitch,Yaw" }, \
     { LOG_CAMERA_VISION_MSG1, sizeof(log_Camera_Vision1), \
-      "CAM1", "QQQBHLLefffLLe","TimeUS,TiFB,TiAH,Fl,Img,Lat,Lng,Alt,Nh,Eh,Dh,HLat,HLng,HAlt" }, \
+      "CAM1", "QQQHLLefffLLe","TimeUS,TiFB,TiAH,Img,Lat,Lng,Alt,Nh,Eh,Dh,HLat,HLng,HAlt" }, \
     { LOG_CAMERA_VISION_MSG2, sizeof(log_Camera_Vision2), \
-      "CAM2", "QQBHfffffffbBB","TimeUS,TiFB,Fl,Img,Nv,Ev,Dv,q1,q2,q3,q4,EKFt,Re,We" }, \
+      "CAM2", "QQHfffffff","TimeUS,TiFB,Img,Nv,Ev,Dv,q1,q2,q3,q4" }, \
     { LOG_TRIGGER_MSG, sizeof(log_Camera), \
       "TRIG", "QIHLLeeeccC","TimeUS,GPSTime,GPSWeek,Lat,Lng,Alt,RelAlt,GPSAlt,Roll,Pitch,Yaw" }, \
     { LOG_ARSP_MSG, sizeof(log_AIRSPEED), \

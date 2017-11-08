@@ -18,6 +18,9 @@
 #include "AP_AHRS_View.h"
 #include <AP_HAL/AP_HAL.h>
 
+AP_AHRS::AHRS_Summary AP_AHRS::summary[2];
+uint8_t AP_AHRS::summary_index;
+
 extern const AP_HAL::HAL& hal;
 
 // table of user settable parameters

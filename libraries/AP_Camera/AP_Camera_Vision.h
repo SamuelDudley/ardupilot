@@ -12,20 +12,7 @@
 
 #include "AP_Camera.h"
 #include <AP_AHRS/AP_AHRS.h>
-#include <AP_HAL/AP_HAL.h>
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
-#include <drivers/drv_input_capture.h>
-#include <drivers/drv_pwm_output.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#endif
 
-
-// with a 400Hz AHRS update rate we expect the data to be no older than 2500us
-// TODO assess the logged values to determine a suitable default time
-#define AP_CAMERA_VISION_DEFAULT_MAX_SAMPLE_AGE          100000 // set to 100ms for now
 #define AP_CAMERA_VISION_DEFAULT_FEEDBACK_COMPONENT_ID   191
 #define AP_CAMERA_VISION_DEFAULT_GCS_FEEDBACK_HZ         1 // 1 message per second
 
@@ -57,57 +44,19 @@ private:
             : AP_Camera(obj_relay, _log_camera_bit, _loc, _gps, _ahrs)
     {
         AP_Param::setup_object_defaults(this, var_info);
-        _last_gcs_feedback_time = 0;
-        _summary_list = &ahrs.summary;
     }
 
     // determine if the GCS should be informed about this image capture event
     bool should_send_feedback_to_gcs(void);
 
-    // send AHRS summary MAVLink message to attached components
-    void send_feedback_ahrs(void);
-
-    // read the AHRS summary captured at the feedback event
-    void read_ahrs_summary(void);
-
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
-    // overloaded function from the standard AP_Camera class
-    // called on hardware trigger event
-    static void capture_callback(void *context, uint32_t chan_index, hrt_abstime edge_time, uint32_t edge_state, uint32_t overflow);
-//    void setup_feedback_callback(void);
-#endif
-
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
-    static void snapshot_ahrs(void);
-#endif
-
     // component ID of the CC which will receive the AHRS summary MAVLink message
     AP_Int16 _vision_feedback_target_component;
-
-    // maximum time difference between the AHRS data sample time and the camera trigger time
-    // before the sampled AHRS data is considered unhealthy
-    AP_Int32 _maximum_ahrs_sample_age_us;
 
     uint32_t _last_gcs_feedback_time;
 
     // the cameras local copy of the AHRS summary structure
     AP_AHRS::AHRS_Summary _ahrs_summary;
 
-    static AP_AHRS::AHRS_Summary *_current_summary;
-
-    static AP_AHRS::AHRS_SummaryList *_summary_list;
-
-    // the time that the last hardware trigger event occurred
-    static uint64_t _camera_feedback_time;
-
-    // the absolute difference between the camera feedback time and the AHRS sample time
-    AP_Int32 _ahrs_sample_age;
-
-    // maximum rate at which the GCS will receive camera feedback infomation
+    // maximum rate at which the GCS will receive camera feedback information
     AP_Float _gcs_feedback_hz;
-
-    static volatile bool _ahrs_data_good;
-
-    uint8_t _flags;
-
 };
