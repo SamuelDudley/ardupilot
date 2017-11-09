@@ -98,9 +98,13 @@ private:
     void            relay_pic();        // basic relay activation
     void            feedback_pin_timer();
     void            setup_feedback_callback(void);
+
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4
     static void     capture_callback(void *context, uint32_t chan_index,
                                      hrt_abstime edge_time, uint32_t edge_state, uint32_t overflow);
+#endif
+#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
+    static void snapshot_ahrs(void);
 #endif
     
     AP_Float        _trigg_dist;        // distance between trigger points (meters)
@@ -108,23 +112,25 @@ private:
     AP_Int16        _max_roll;          // Maximum acceptable roll angle when trigging camera
     uint32_t        _last_photo_time;   // last time a photo was taken
     struct Location _last_location;
-    static uint16_t _image_index;       // number of pictures taken since boot
-
-    // pin number for accurate camera feedback messages
-    AP_Int8         _feedback_pin;
+    AP_Int8         _feedback_pin;      // pin number for accurate camera feedback messages
     AP_Int8         _feedback_polarity;
-
-    // this is set to 1 when camera trigger pin has fired
-    static volatile bool   _camera_triggered;
+    uint32_t        _last_gcs_feedback_time;
     bool            _timer_installed:1;
     uint8_t         _last_pin_state;
-
-    void log_picture();
 
     uint32_t log_camera_bit;
     const struct Location &current_loc;
     const AP_GPS &gps;
     const AP_AHRS &ahrs;
+
+    static uint16_t _image_index;       // number of pictures taken since boot
+    static volatile bool   _camera_triggered; // this is set to 1 when camera trigger pin has fired
+    static AP_AHRS::AHRS_Summary _ahrs_summary; // the cameras local copy of the AHRS summary structure
+    static uint64_t _camera_feedback_time; // the time that the last hardware trigger event occurred
+
+    // datalog functions
+    void log_picture(void);  // log trigger events
+    void log_feedback(void); // log feedback events
 
     // entry point to trip local shutter (e.g. by relay or servo)
     void trigger_pic();
@@ -133,34 +139,15 @@ private:
     // should be called at 50hz from main program
     void trigger_pic_cleanup();
 
-    void datalog(void);
-
     // check if trigger pin has fired
     bool check_trigger_pin(void);
 
     // return true if we are using a feedback pin
     bool using_feedback_pin(void) const { return _feedback_pin > 0; }
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
-    static void snapshot_ahrs(void);
-#endif
-
     // determine if the GCS should be informed about this image capture event
     bool should_send_feedback_to_gcs(void);
 
     // send AHRS summary MAVLink message to attached components
     void send_feedback_ahrs(void);
-
-    // the cameras local copy of the AHRS summary structure
-    static AP_AHRS::AHRS_Summary _ahrs_summary;
-
-    // the time that the last hardware trigger event occurred
-    static uint64_t _camera_feedback_time;
-
-    uint32_t _last_gcs_feedback_time;
-
-
-
-
-
 };

@@ -272,6 +272,8 @@ void AP_Camera::send_feedback(mavlink_channel_t chan) {
         altitude*1e-2, altitude_rel*1e-2,
         ahrs.roll_sensor*1e-2, ahrs.pitch_sensor*1e-2, ahrs.yaw_sensor*1e-2,
         0.0f,CAMERA_FEEDBACK_PHOTO);
+
+    _last_gcs_feedback_time = AP_HAL::millis();
 }
 
 // send camera feedback to message to components of this system
@@ -482,15 +484,14 @@ void AP_Camera::update_trigger() {
     if (check_trigger_pin()) {
         if (should_send_feedback_to_gcs()) {
             gcs().send_message(MSG_CAMERA_FEEDBACK);
-            _last_gcs_feedback_time = AP_HAL::millis();
         }
         // send feedback info and AHRS state to the CC
         send_feedback_ahrs();
-        datalog();
+        log_feedback();
     }
 }
 
-void AP_Camera::datalog() {
+void AP_Camera::log_feedback() {
     // store the image capture info to dataflash
     DataFlash_Class *df = DataFlash_Class::instance();
     if (df != nullptr) {
