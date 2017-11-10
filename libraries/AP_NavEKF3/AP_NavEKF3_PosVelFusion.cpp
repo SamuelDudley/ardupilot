@@ -173,7 +173,7 @@ void NavEKF3_core::ResetHeight(void)
     zeroCols(P,9,9);
 
     // set the variances to the measurement variance
-    P[9][9] = posDownObsNoise;
+    P[9][9] = posDownObsVar;
 
     // Reset the vertical velocity state using GPS vertical velocity if we are airborne
     // Check that GPS vertical velocity data is available and can be used
@@ -252,11 +252,21 @@ void NavEKF3_core::SelectVelPosFusion()
                 gpsDataDelayed.vel -= velOffsetEarth;
             }
             Vector3f posOffsetEarth = prevTnb.mul_transpose(posOffsetBody);
-            gpsDataDelayed.pos.x -= posOffsetEarth.x;
-            gpsDataDelayed.pos.y -= posOffsetEarth.y;
+            horizPosMea.x = gpsDataDelayed.pos.x -= posOffsetEarth.x;
+            horizPosMea.y = gpsDataDelayed.pos.y -= posOffsetEarth.y;
             gpsDataDelayed.hgt += posOffsetEarth.z;
         }
 
+        // calculate additional error in GPS position caused by manoeuvring
+        float manoeuvrePosError = frontend->gpsPosVarAccScale * accNavMag;
+
+        // set the observation variance for the GPS position measurement
+        // Use GPS reported position accuracy if available and floor at value set by GPS position noise parameter
+        if (gpsPosAccuracy > 0.0f) {
+            horizPosObsVar = sq(constrain_float(gpsPosAccuracy, frontend->_gpsHorizPosNoise, 100.0f));
+        } else {
+            horizPosObsVar = sq(constrain_float(frontend->_gpsHorizPosNoise, 0.1f, 10.0f)) + sq(manoeuvrePosError);
+        }
 
         // Don't fuse velocity data if GPS doesn't support it
         if (frontend->_fusionModeGPS <= 1) {
@@ -394,9 +404,6 @@ void NavEKF3_core::FuseVelPosNED()
         observation[4] = gpsDataDelayed.pos.y;
         observation[5] = -hgtMea;
 
-        // calculate additional error in GPS position caused by manoeuvring
-        float posErr = frontend->gpsPosVarAccScale * accNavMag;
-
         // estimate the GPS Velocity, GPS horiz position and height measurement variances.
         // Use different errors if operating without external aiding using an assumed position or velocity of zero
         if (PV_AidingMode == AID_NONE) {
@@ -423,19 +430,16 @@ void NavEKF3_core::FuseVelPosNED()
                 R_OBS[2] = sq(constrain_float(frontend->_gpsVertVelNoise,  0.05f, 5.0f)) + sq(frontend->gpsDVelVarAccScale  * accNavMag);
             }
             R_OBS[1] = R_OBS[0];
-            // Use GPS reported position accuracy if available and floor at value set by GPS position noise parameter
-            if (gpsPosAccuracy > 0.0f) {
-                R_OBS[3] = sq(constrain_float(gpsPosAccuracy, frontend->_gpsHorizPosNoise, 100.0f));
-            } else {
-                R_OBS[3] = sq(constrain_float(frontend->_gpsHorizPosNoise, 0.1f, 10.0f)) + sq(posErr);
-            }
-            R_OBS[4] = R_OBS[3];
+
+            // Set NE horizontal position observaton variance elements
+            R_OBS[4] = R_OBS[3] = horizPosObsVar;
+
             // For data integrity checks we use the same measurement variances as used to calculate the Kalman gains for all measurements except GPS horizontal velocity
-            // For horizontal GPs velocity we don't want the acceptance radius to increase with reported GPS accuracy so we use a value based on best GPs perfomrance
+            // For horizontal GPs velocity we don't want the acceptance radius to increase with reported GPS accuracy so we use a value based on best GPS perfomrance
             // plus a margin for manoeuvres. It is better to reject GPS horizontal velocity errors early
             for (uint8_t i=0; i<=2; i++) R_OBS_DATA_CHECKS[i] = sq(constrain_float(frontend->_gpsHorizVelNoise, 0.05f, 5.0f)) + sq(frontend->gpsNEVelVarAccScale * accNavMag);
         }
-        R_OBS[5] = posDownObsNoise;
+        R_OBS[5] = posDownObsVar;
         for (uint8_t i=3; i<=5; i++) R_OBS_DATA_CHECKS[i] = R_OBS[i];
 
         // if vertical GPS velocity data and an independent height source is being used, check to see if the GPS vertical velocity and altimeter
@@ -457,8 +461,13 @@ void NavEKF3_core::FuseVelPosNED()
         // test position measurements
         if (fusePosData) {
             // test horizontal position measurements
-            innovVelPos[3] = stateStruct.position.x - observation[3];
-            innovVelPos[4] = stateStruct.position.y - observation[4];
+            if (!useExtNavRelPosMethod) {
+                innovVelPos[3] = stateStruct.position.x - horizPosMea.x;
+                innovVelPos[4] = stateStruct.position.y - horizPosMea.y;
+            } else {
+                innovVelPos[3] = innovExtNavPos.x;
+                innovVelPos[4] = innovExtNavPos.y;
+            }
             varInnovVelPos[3] = P[7][7] + R_OBS_DATA_CHECKS[3];
             varInnovVelPos[4] = P[8][8] + R_OBS_DATA_CHECKS[4];
             // apply an innovation consistency threshold test, but don't fail if bad IMU data
@@ -543,7 +552,11 @@ void NavEKF3_core::FuseVelPosNED()
         // test height measurements
         if (fuseHgtData) {
             // calculate height innovations
-            innovVelPos[5] = stateStruct.position.z - observation[5];
+            if (!useExtNavRelPosMethod) {
+                innovVelPos[5] = stateStruct.position.z - observation[5];
+            } else {
+                innovVelPos[5] = innovExtNavPos.z;
+            }
             varInnovVelPos[5] = P[9][9] + R_OBS_DATA_CHECKS[5];
             // calculate the innovation consistency test ratio
             hgtTestRatio = sq(innovVelPos[5]) / (sq(MAX(0.01f * (float)frontend->_hgtInnovGate, 1.0f)) * varInnovVelPos[5]);
@@ -865,9 +878,9 @@ void NavEKF3_core::selectHeightForFusion()
             // enable fusion
             fuseHgtData = true;
             // set the observation noise
-            posDownObsNoise = sq(constrain_float(frontend->_rngNoise, 0.1f, 10.0f));
+            posDownObsVar = sq(constrain_float(frontend->_rngNoise, 0.1f, 10.0f));
             // add uncertainty created by terrain gradient and vehicle tilt
-            posDownObsNoise += sq(rangeDataDelayed.rng * frontend->_terrGradMax) * MAX(0.0f , (1.0f - sq(prevTnb.c.z)));
+            posDownObsVar += sq(rangeDataDelayed.rng * frontend->_terrGradMax) * MAX(0.0f , (1.0f - sq(prevTnb.c.z)));
         } else {
             // disable fusion if tilted too far
             fuseHgtData = false;
@@ -879,9 +892,9 @@ void NavEKF3_core::selectHeightForFusion()
         fuseHgtData = true;
         // set the observation noise using receiver reported accuracy or the horizontal noise scaled for typical VDOP/HDOP ratio
         if (gpsHgtAccuracy > 0.0f) {
-            posDownObsNoise = sq(constrain_float(gpsHgtAccuracy, 1.5f * frontend->_gpsHorizPosNoise, 100.0f));
+            posDownObsVar = sq(constrain_float(gpsHgtAccuracy, 1.5f * frontend->_gpsHorizPosNoise, 100.0f));
         } else {
-            posDownObsNoise = sq(constrain_float(1.5f * frontend->_gpsHorizPosNoise, 0.1f, 10.0f));
+            posDownObsVar = sq(constrain_float(1.5f * frontend->_gpsHorizPosNoise, 0.1f, 10.0f));
         }
     } else if (baroDataToFuse && (activeHgtSource == HGT_SOURCE_BARO)) {
         // using Baro data
@@ -889,10 +902,10 @@ void NavEKF3_core::selectHeightForFusion()
         // enable fusion
         fuseHgtData = true;
         // set the observation noise
-        posDownObsNoise = sq(constrain_float(frontend->_baroAltNoise, 0.1f, 10.0f));
+        posDownObsVar = sq(constrain_float(frontend->_baroAltNoise, 0.1f, 10.0f));
         // reduce weighting (increase observation noise) on baro if we are likely to be in ground effect
         if (getTakeoffExpected() || getTouchdownExpected()) {
-            posDownObsNoise *= frontend->gndEffectBaroScaler;
+            posDownObsVar *= frontend->gndEffectBaroScaler;
         }
         // If we are in takeoff mode, the height measurement is limited to be no less than the measurement at start of takeoff
         // This prevents negative baro disturbances due to copter downwash corrupting the EKF altitude during initial ascent
@@ -1606,6 +1619,76 @@ void NavEKF3_core::SelectBodyOdomFusion()
 
         }
 
+    }
+}
+
+// select fusion of external navigation measurements
+void NavEKF3_core::SelectExtNavFusion()
+{
+    // Check if the magnetometer has been fused on that time step and the filter is running at faster than 200 Hz
+    // If so, don't fuse measurements on this time step to reduce frame over-runs
+    // Only allow one time slip to prevent high rate magnetometer data preventing fusion of other measurements
+    if (magFusePerformed && (dtIMUavg < 0.005f) && !extNavFusionDelayed) {
+        extNavFusionDelayed = true;
+        return;
+    } else {
+        extNavFusionDelayed = false;
+    }
+
+    // Check for data at the fusion time horizon
+    if (storedExtNav.recall(extNavDataDelayed, imuDataDelayed.time_ms)) {
+
+        useExtNavRelPosMethod = !extNavDataDelayed.frameIsNED || estimateScaleFactor || filterStatus.flags.using_gps;
+
+        // If external nav is not using NED, calculate the rotation required to convert measurements
+        if (!extNavDataDelayed.frameIsNED) {
+            calcExtVisRotMat();
+        }
+
+        // Run the scale factor estimator if required
+        if (estimateScaleFactor) {
+            extNavScaleObservation();
+            logScaleFactorFusion = true;
+        }
+
+        fusePosData = true;
+        fuseHgtData = true;
+        fuseVelData = false;
+
+        if (useExtNavRelPosMethod) {
+            if ((imuDataDelayed.time_ms - extNavDataDelayed.time_ms) > 1000) {
+                // Need to reinitialise the previous values used to calculate odometry delta
+                extNavPosMeasPrev = extNavDataDelayed.pos;
+                extNavPosEstPrev = stateStruct.position;
+                fusePosData = false;
+                fuseHgtData = false;
+                fuseVelData = false;
+                gcs().send_text(MAV_SEVERITY_INFO, "EKF3 IMU%u reset ext nav odometry",(unsigned)imu_index);
+                return;
+
+            } else {
+                float scaleFactorInv = 1.0f / extNavScaleFactor;
+                Vector3f relPosMea = (extNavDataDelayed.pos - extNavPosMeasPrev) * scaleFactorInv;
+                if (!extNavDataDelayed.frameIsNED) {
+                    relPosMea = extNavToEkfRotMat * relPosMea;
+                }
+                innovExtNavPos = stateStruct.position - extNavPosEstPrev - relPosMea;
+                horizPosObsVar = posDownObsVar = sq(extNavDataDelayed.posErr * scaleFactorInv);
+
+                extNavPosMeasPrev = extNavDataDelayed.pos;
+                extNavPosEstPrev = stateStruct.position;
+                FuseVelPosNED();
+                fusePosData = false;
+                fuseHgtData = false;
+                fuseVelData = false;
+            }
+        } else {
+            horizPosMea.x = extNavDataDelayed.pos.x;
+            horizPosMea.y = extNavDataDelayed.pos.y;
+            horizPosObsVar = sq(extNavDataDelayed.posErr);
+            hgtMea = - extNavDataDelayed.pos.x;
+            posDownObsVar = sq(extNavDataDelayed.posErr);
+        }
     }
 }
 

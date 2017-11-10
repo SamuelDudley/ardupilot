@@ -224,6 +224,22 @@ public:
     void writeBodyFrameOdom(float quality, const Vector3f &delPos, const Vector3f &delAng, float delTime, uint32_t timeStamp_ms, const Vector3f &posOffset);
 
     /*
+     * Write position and quaternion data from an external navigation system
+     *
+     * scaleUnknown : Boolean set to true when the position scaling is unknown or not in metres
+     * frameIsNED : Boolean set to true if the external mavigaton system is using a NED coordinate frame
+     * sensOffset : position of the external navigatoin sensor in body frame (m)
+     * pos        : position in the RH navigation frame. Frame is assumed to be NED if frameIsNED is true. (m)
+     * quat       : quaternion desribing the the rotation from navigation frame to body frame
+     * posErr     : 1-sigma spherical position error (m)
+     * angErr     : 1-sigma spherical angle error (rad)
+     * timeStamp_ms : system time the measurement was taken, not the time it was received (mSec)
+     * resetTime_ms : system time of the last position reset request (mSec)
+     *
+    */
+    void writeExtNavData(bool scaleUnknown ,bool frameIsNED, const Vector3f &sensOffset, const Vector3f &pos, const Quaternion &quat, float posErr, float angErr, uint32_t timeStamp_ms, uint32_t resetTime_ms);
+
+    /*
      * Write odometry data from a wheel encoder. The axis of rotation is assumed to be parallel to the vehicle body axis
      *
      * delAng is the measured change in angular position from the previous measurement where a positive rotation is produced by forward motion of the vehicle (rad)
@@ -260,6 +276,8 @@ public:
     */
     bool getRangeBeaconDebug(uint8_t &ID, float &rng, float &innov, float &innovVar, float &testRatio, Vector3f &beaconPosNED,
                              float &offsetHigh, float &offsetLow, Vector3f &posNED);
+
+    bool getScaleFactorDebug(float &scaleLog, float &scaleLogSigma, Vector3f &innov, Vector3f &innovVar);
 
     // called by vehicle code to specify that a takeoff is happening
     // causes the EKF to compensate for expected barometer errors due to ground effect
@@ -354,6 +372,9 @@ public:
     // get timing statistics structure
     void getTimingStatistics(struct ekf_timing &timing);
     
+    // return the quaternion defining the rotation from the EKF to the external nav reference frame
+    void getEkfToExtNavQuat(Quaternion &ret) const;
+
 private:
     // Reference to the global EKF frontend for parameters
     NavEKF3 *frontend;
@@ -385,6 +406,7 @@ private:
     typedef VectorN<ftype,31> Vector31;
     typedef VectorN<ftype,28> Vector28;
     typedef VectorN<VectorN<ftype,3>,3> Matrix3;
+    typedef VectorN<VectorN<ftype,7>,7> Matrix7;
     typedef VectorN<VectorN<ftype,24>,24> Matrix24;
     typedef VectorN<VectorN<ftype,34>,50> Matrix34_50;
     typedef VectorN<uint32_t,50> Vector_u32_50;
@@ -409,6 +431,7 @@ private:
     typedef ftype Vector25[25];
     typedef ftype Vector28[28];
     typedef ftype Matrix3[3][3];
+    typedef ftype Matrix7[7][7];
     typedef ftype Matrix24[24][24];
     typedef ftype Matrix34_50[34][50];
     typedef uint32_t Vector_u32_50[50];
@@ -430,6 +453,14 @@ private:
         Vector3f    body_magfield;  // body frame magnetic field vector (Gauss)
         Vector2f    wind_vel;       // horizontal North East wind velocity vector in local NED earth frame (m/sec)
     } &stateStruct;
+
+    // state array used by the external nav scale factor estimator and able to be accessed as either an array or a function
+    Vector7 extNavStateArray;
+    struct extNavStateElements {
+        Vector3f    velocity;       // velocity of IMU in external nav world frame (length/sec)
+        Vector3f    position;       // position of IMU in external nav world frame (length)
+        float       scaleFactorLog; // natural log of scale factor to that converts from EKF nav frame to external nav world frame
+    } &extNavStateStruct;
 
     struct output_elements {
         Quaternion  quat;           // quaternion defining rotation from local NED earth frame to body frame
@@ -498,6 +529,17 @@ private:
         uint32_t        time_ms;    // measurement timestamp (msec)
     };
 
+    struct ext_nav_elements {
+        bool            frameIsNED; // true if the data is in a NED navigation frame
+        Vector3f        pos;        // XYZ position measured in a RH navigation frame (m)
+        Quaternion      quat;       // quaternion describing the rotation from navigation to body frame
+        float           posErr;     // spherical poition measurement error 1-std (m)
+        float           angErr;     // spherical angular measurement error 1-std (rad)
+        const Vector3f *body_offset;// pointer to XYZ position of the sensor in body frame (m)
+        uint32_t        time_ms;    // measurement timestamp (msec)
+        bool            posReset;   // true when the position measurement has been reset
+    };
+
     struct wheel_odm_elements {
         float           delAng;     // wheel rotation angle measured in body frame - positive is forward movement of vehicle (rad/s)
         float           radius;     // wheel radius (m)
@@ -511,6 +553,14 @@ private:
 
     // update the quaternion, velocity and position states using IMU measurements
     void UpdateStrapdownEquationsNED();
+
+    // perform state and covariance prediction for the small EKF used to estimate the length
+    // scale factor that converts from navigation frame to external nav system world frame
+    void extNavScalePrediction(Vector3f delVelNED);
+
+    // perform an observation step for the small EKF used to estimate the length
+    // scale factor that converts from navigation frame to external nav system world frame
+    void extNavScaleObservation();
 
     // calculate the predicted state covariance matrix
     void CovariancePrediction();
@@ -676,6 +726,9 @@ private:
     // return true if the filter to be ready to use the beacon range measurements
     bool readyToUseRangeBeacon(void) const;
 
+    // return true if the filter to be ready to use external nav system estimates
+    bool readyToUseExtNav(void) const;
+
     // Check for filter divergence
     void checkDivergence(void);
 
@@ -696,6 +749,9 @@ private:
 
     // determine when to perform fusion of body frame odometry measurements
     void SelectBodyOdomFusion();
+
+    // determine when to perform fusion of external nav system data
+    void SelectExtNavFusion();
 
     // Estimate terrain offset using a single state EKF
     void EstimateTerrainOffset();
@@ -794,6 +850,10 @@ private:
 
     // Update the state index limit based on which states are active
     void updateStateIndexLim(void);
+
+    // update the estimated misalignment between the EV naigration frame and the EKF navigation frame
+    // and calculate a rotation matrix which transforms EV navigation frame measurements into NED
+    void calcExtVisRotMat();
     
     // Variables
     bool statesInitialised;         // boolean true when filter states have been initialised
@@ -839,8 +899,8 @@ private:
     Vector6 innovVelPos;            // innovation output for a group of measurements
     Vector6 varInnovVelPos;         // innovation variance output for a group of measurements
     bool fuseVelData;               // this boolean causes the velNED measurements to be fused
-    bool fusePosData;               // this boolean causes the posNE measurements to be fused
-    bool fuseHgtData;               // this boolean causes the hgtMea measurements to be fused
+    bool fusePosData;               // this boolean causes the horizPosMea measurements to be fused
+    bool fuseHgtData;               // this boolean causes the hgtMea measurement to be fused
     Vector3f innovMag;              // innovation output from fusion of X,Y,Z compass measurements
     Vector3f varInnovMag;           // innovation variance output from fusion of X,Y,Z compass measurements
     ftype innovVtas;                // innovation output from fusion of airspeed measurements
@@ -949,7 +1009,7 @@ private:
     uint32_t framesSincePredict;    // number of frames lapsed since EKF instance did a state prediction
     bool startPredictEnabled;       // boolean true when the frontend has given permission to start a new state prediciton cycle
     uint8_t localFilterTimeStep_ms; // average number of msec between filter updates
-    float posDownObsNoise;          // observation noise variance on the vertical position used by the state and covariance update step (m^2)
+    float posDownObsVar;          // observation noise variance on the vertical position used by the state and covariance update step (m^2)
     Vector3f delAngCorrected;       // corrected IMU delta angle vector at the EKF time horizon (rad)
     Vector3f delVelCorrected;       // corrected IMU delta velocity vector at the EKF time horizon (m/s)
     bool magFieldLearned;           // true when the magnetic field has been learned
@@ -975,7 +1035,8 @@ private:
                     FLOW=3,         // Use optical flow rates
                     BARO=4,         // Use Baro height
                     MAG=5,          // Use magnetometer data
-                    RNGFND=6        // Use rangefinder data
+                    RNGFND=6,       // Use rangefinder data
+                    EXTNAV=7        // Use external nav system data
                         };
     resetDataSource posResetSource; // preferred soure of data for position reset
     resetDataSource velResetSource; // preferred source of data for a velocity reset
@@ -1029,6 +1090,8 @@ private:
     float varInnovRng;              // range finder observation innovation variance (m^2)
     float innovRng;                 // range finder observation innovation (m)
     float hgtMea;                   // height measurement derived from either baro, gps or range finder data (m)
+    Vector2f horizPosMea;           // horizontal position observation (m)
+    float horizPosObsVar;           // horizontal position observation variance (m^2)
     bool inhibitGndState;           // true when the terrain position state is to remain constant
     uint32_t prevFlowFuseTime_ms;   // time both flow measurement components passed their innovation consistency checks
     Vector2 flowTestRatio;          // square of optical flow innovations divided by fail threshold used by main filter where >1.0 is a fail
@@ -1071,12 +1134,42 @@ private:
     vel_odm_elements bodyOdmDataDelayed;  // Body  frame odometry data at the fusion time horizon
     uint32_t lastbodyVelPassTime_ms;    // time stamp when the body velocity measurement last passed innovation consistency checks (msec)
     Vector3 bodyVelTestRatio;           // Innovation test ratios for body velocity XYZ measurements
-    Vector3 varInnovBodyVel;            // Body velocity XYZ innovation variances (rad/sec)^2
-    Vector3 innovBodyVel;               // Body velocity XYZ innovations (rad/sec)
+    Vector3 varInnovBodyVel;            // Body velocity XYZ innovation variances (m/sec)^2
+    Vector3 innovBodyVel;               // Body velocity XYZ innovations (m/sec)
     uint32_t prevBodyVelFuseTime_ms;    // previous time all body velocity measurement components passed their innovation consistency checks (msec)
     uint32_t bodyOdmMeasTime_ms;        // time body velocity measurements were accepted for input to the data buffer (msec)
     bool bodyVelFusionDelayed;          // true when body frame velocity fusion has been delayed
     bool bodyVelFusionActive;           // true when body frame velocity fusion is active
+
+    // external navigation fusion
+    obs_ring_buffer_t<ext_nav_elements> storedExtNav; // external navigation data buffer
+    ext_nav_elements extNavDataNew;     // External nav data at the current time horizon
+    ext_nav_elements extNavDataDelayed; // External nav at the fusion time horizon
+    Vector3 extNavPosTestRatio;         // Innovation test ratios for external nav position measurements
+    Vector3 varInnovExtNavPos;          // External nav position XYZ innovation variances (m)^2
+    Vector3f innovExtNavPos;            // External nav position XYZ innovations (m)
+    uint32_t extNavMeasTime_ms;         // time external measurements were accepted for input to the data buffer (msec)
+    Vector3f ekfToExtNavRotVecFilt;     // filtered rotation vector defining the rotation from EKF to external nav reference frme (rad)
+    Matrix3f extNavToEkfRotMat;         // transformation matrix that rotates observations from the external nav to the EKF reference frame
+    uint32_t ekfToExtNavRotTime_ms;     // previous time that the calculation of the ext nav to EKF rotation matrix was updated (mSec)
+    bool extNavFusionDelayed;           // true when external nav fusion has been delayed
+    bool useExtNavRelPosMethod;         // true when the position data is being fused using an odometry assumption
+    Vector3f extNavPosMeasPrev;         // previous value of NED position measurement fused using odometry assumption (m)
+    Vector3f extNavPosEstPrev;          // value of NED position state used by the last odometry fusion (m)
+    bool extNavPrevAvailable;           // true when previous values of the estimate and measurement are available for use
+    uint32_t extNavLastPosResetTime_ms; // last time the external nav systen performed a position reset (msec)
+
+    // Estimation of external nav scale factor using a 7 state EKF to estimate
+    // States can be accessed as either an array 'statesArray' or a struct 'stateStruct'
+    // See stateStruct(*reinterpret_cast<struct extNavStateElements *>(&statesArray)) in constructor
+    bool estimateScaleFactor;           // true when the scale factor from navigation to world frame length units needs to be estimated
+    Matrix7 extNavP;                    // Covariance matrix
+    Vector3f extNavScaleInnovVar;        // innovation variance
+    Vector3f extNavScaleInnov;           // innovation
+    uint32_t extNavScaleFuseTime_ms;    // last time external position measurements fused (msec)
+    float extNavScaleFactor;            // scale factor that converts from nav frame to world frame length units
+    bool extNavScaleEkfInit;            // true when the EKF has been initialised
+    bool logScaleFactorFusion;          // true when there is a scale factor fusion update to be logged
 
     // wheel sensor fusion
     uint32_t wheelOdmMeasTime_ms;       // time wheel odometry measurements were accepted for input to the data buffer (msec)
@@ -1084,7 +1177,6 @@ private:
     obs_ring_buffer_t<wheel_odm_elements> storedWheelOdm;    // body velocity data buffer
     wheel_odm_elements wheelOdmDataNew;       // Body frame odometry data at the current time horizon
     wheel_odm_elements wheelOdmDataDelayed;   // Body  frame odometry data at the fusion time horizon
-
 
     // Range Beacon Sensor Fusion
     obs_ring_buffer_t<rng_bcn_elements> storedRangeBeacon; // Beacon range buffer
