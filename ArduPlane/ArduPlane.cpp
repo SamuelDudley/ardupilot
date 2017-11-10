@@ -63,6 +63,7 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
 #if OPTFLOW == ENABLED
     SCHED_TASK(update_optical_flow,    50,    50),
 #endif
+    SCHED_TASK(update_external_nav,    50,     50),
     SCHED_TASK(one_second_loop,         1,    400),
     SCHED_TASK(check_long_failsafe,     3,    400),
     SCHED_TASK(read_receiver_rssi,     10,    100),

@@ -167,6 +167,9 @@ void Plane::init_ardupilot()
     hal.gpio->write(FENCE_TRIGGERED_PIN, 0);
 #endif
 
+    // initialise external nav sensor
+    init_external_nav();
+
     /*
      *  setup the 'main loop is dead' check. Note that this relies on
      *  the RC library being initialised.
@@ -176,6 +179,7 @@ void Plane::init_ardupilot()
     init_capabilities();
 
     quadplane.setup();
+
 
     AP_Param::reload_defaults_file();
     

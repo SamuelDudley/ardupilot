@@ -170,6 +170,9 @@ public:
     // write body odometry measurements to the EKF
     void writeBodyFrameOdom(float quality, const Vector3f &delPos, const Vector3f &delAng, float delTime, uint32_t timeStamp_ms, const Vector3f &posOffset);
 
+    // write external nav sensor measurements to the EKF
+    void writeExtNavData(bool scaleUnknown ,bool frameIsNED, const Vector3f &sensOffset, const Vector3f &pos, const Quaternion &quat, float posErr, float angErr, uint32_t timeStamp_ms, uint32_t resetTime_ms);
+
     // inhibit GPS usage
     uint8_t setInhibitGPS(void);
 

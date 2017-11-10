@@ -1186,6 +1186,10 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("HOME_RESET_ALT", 11, ParametersG2, home_reset_threshold, 0),
 
+    // @Group: EXTNAV_
+    // @Path: ../libraries/AP_ExternalNav/AP_ExternalNav.cpp
+    AP_SUBGROUPINFO(external_nav, "EXTNAV", 12, ParametersG2, AP_ExternalNav),
+
     AP_GROUPEND
 };
 
