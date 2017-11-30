@@ -29,6 +29,7 @@
 
 #define AP_CAMERA_DEFAULT_FEEDBACK_COMPONENT_ID   191
 #define AP_CAMERA_DEFAULT_GCS_FEEDBACK_HZ         1 // 1 message per second
+#define AP_CAMERA_DEFAULT_SIM_CAPTURE_RATE_HZ     5 // 5 messages per second
 
 /// @class	Camera
 /// @brief	Object managing a Photo or video camera
@@ -92,7 +93,8 @@ private:
     uint8_t         _trigger_counter;   // count of number of cycles shutter has been held open
     AP_Relay       *_apm_relay;         // pointer to relay object from the base class Relay.
     AP_Float        _gcs_feedback_hz;   // maximum rate at which the GCS will receive camera feedback information
-    AP_Int16 _vision_feedback_target_component; // component ID of the CC which will receive the AHRS summary MAVLink message
+    AP_Int16        _vision_feedback_target_component; // component ID of the CC which will receive the AHRS summary MAVLink message
+    AP_Float        _sim_capture_hz;    // rate at which simulated camera feedback events will occur
 
     void            servo_pic();        // Servo operated camera
     void            relay_pic();        // basic relay activation

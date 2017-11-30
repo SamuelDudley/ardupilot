@@ -180,9 +180,9 @@ void Plane::init_external_nav() {
 // update external nav sensor
 void Plane::update_external_nav() {
     // check for updates
-    if (g2.external_nav.enabled() && (g2.external_nav.get_last_update_ms() != external_nav_last_update_ms)) {
-        external_nav_last_update_ms = g2.external_nav.get_last_update_ms();
-        const float time_delta_sec = g2.external_nav.get_time_delta_usec() / 1000000.0f;
+//    if (g2.external_nav.enabled() && (g2.external_nav.get_last_update_ms() != external_nav_last_update_ms)) {
+//        external_nav_last_update_ms = g2.external_nav.get_last_update_ms();
+//        const float time_delta_sec = g2.external_nav.get_time_delta_usec() / 1000000.0f;
 
         //TODO actually write the values
 //        ahrs.writeExtNavData(bool scaleUnknown ,bool frameIsNED, const Vector3f &sensOffset, const Vector3f &pos, const Quaternion &quat, float posErr, float angErr, uint32_t timeStamp_ms, uint32_t resetTime_ms);
@@ -198,7 +198,7 @@ void Plane::update_external_nav() {
 //                                       g2.visual_odom.get_angle_delta(),
 //                                       g2.visual_odom.get_position_delta(),
 //                                       g2.visual_odom.get_confidence());
-    }
+//    }
 }
 // end SD
 

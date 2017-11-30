@@ -106,6 +106,14 @@ const AP_Param::GroupInfo AP_Camera::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("MAX_GCS_RATE", 11, AP_Camera, _gcs_feedback_hz, AP_CAMERA_DEFAULT_GCS_FEEDBACK_HZ),
 
+    // @Param: SIM_CAP_RATE
+    // @DisplayName: Simulated camera feedback rate Hz
+    // @Description: SITL only - Rate that camera feedback messages will be sent to the AP (Hz). 0 = suppress sending feedback messages to the AP
+    // @Units: Hz
+    // @Range: 0 100
+    // @User: Advanced
+    AP_GROUPINFO("SIM_CAP_RATE", 12, AP_Camera, _sim_capture_hz, AP_CAMERA_DEFAULT_SIM_CAPTURE_RATE_HZ),
+
     AP_GROUPEND
 };
 
@@ -480,6 +488,10 @@ void AP_Camera::take_picture() {
  */
 void AP_Camera::update_trigger() {
     setup_feedback_callback();
+    // SITL hack to enable faux camera feedback events
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
+    snapshot_ahrs();
+#endif
     trigger_pic_cleanup();
     if (check_trigger_pin()) {
         if (should_send_feedback_to_gcs()) {
