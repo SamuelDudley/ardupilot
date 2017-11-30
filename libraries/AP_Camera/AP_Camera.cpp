@@ -247,6 +247,19 @@ void AP_Camera::control(float session, float zoom_pos, float zoom_step, float fo
     GCS_MAVLINK::send_to_components(&msg);
 }
 
+bool AP_Camera::should_send_fake_feedback(void) {
+    if (is_zero(_sim_capture_hz)) {
+        // handle the zero case here to avoid the divide by zero in the next case
+        return false;
+    } else if (AP_HAL::millis() - _last_fake_feedback_time > (1.0/_sim_capture_hz)*1000) {
+        // sufficient time has passed since we last generated a fake feedback event
+       return true;
+    } else {
+        // insufficient time has passed, cause a fake feedback event this update
+       return false;
+    }
+}
+
 bool AP_Camera::should_send_feedback_to_gcs(void) {
     if (is_negative(_gcs_feedback_hz)) {
         return true;
@@ -490,7 +503,10 @@ void AP_Camera::update_trigger() {
     setup_feedback_callback();
     // SITL hack to enable faux camera feedback events
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
-    snapshot_ahrs();
+    if (should_send_fake_feedback()) {
+        snapshot_ahrs();
+        _last_fake_feedback_time = AP_HAL::millis();
+    }
 #endif
     trigger_pic_cleanup();
     if (check_trigger_pin()) {

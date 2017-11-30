@@ -117,6 +117,7 @@ private:
     AP_Int8         _feedback_pin;      // pin number for accurate camera feedback messages
     AP_Int8         _feedback_polarity;
     uint32_t        _last_gcs_feedback_time;
+    uint32_t        _last_fake_feedback_time;
     bool            _timer_installed:1;
     uint8_t         _last_pin_state;
 
@@ -149,6 +150,9 @@ private:
 
     // determine if the GCS should be informed about this image capture event
     bool should_send_feedback_to_gcs(void);
+
+    // determine if a feedback event should be faked on this update
+    bool should_send_fake_feedback(void);
 
     // send AHRS summary MAVLink message to attached components
     void send_feedback_ahrs(void);
