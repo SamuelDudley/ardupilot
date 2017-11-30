@@ -184,26 +184,18 @@ void Plane::update_external_nav() {
         external_nav_last_update_ms = g2.external_nav.get_last_update_ms();
 
         // Write the sensor values
-//        ahrs.writeExtNavData(g2.external_nav.get_scale_flag(),
-//                             g2.external_nav.get_ned_flag(),
-//                             g2.external_nav.get_sensor_offset(),
-//                             g2.external_nav.get_position_estimate(),
-//                             g2.external_nav.get_orientation_estimate(),
-//                             g2.external_nav.get_position_error(),
-//                             g2.external_nav.get_orientation_error(),
-//                             g2.external_nav.get_source_timestamp_ms(),
-//                             g2.external_nav.get_last_reset_ms());
-
-
-
-//       bool scaleUnknown ,bool frameIsNED, const Vector3f &sensOffset, const Vector3f &pos, const Quaternion &quat, float posErr, float angErr, uint32_t timeStamp_ms, uint32_t resetTime_ms);
-
+        ahrs.writeExtNavData(g2.external_nav.get_scale_flag(),
+                             g2.external_nav.get_ned_flag(),
+                             g2.external_nav.get_sensor_offset(),
+                             g2.external_nav.get_position_estimate(),
+                             g2.external_nav.get_orientation_estimate(),
+                             g2.external_nav.get_position_error(),
+                             g2.external_nav.get_orientation_error(),
+                             g2.external_nav.get_source_timestamp_ms(),
+                             g2.external_nav.get_last_reset_ms());
 
         // TODO log sensor data
-//        DataFlash.Log_Write_VisualOdom(time_delta_sec,
-//                                       g2.visual_odom.get_angle_delta(),
-//                                       g2.visual_odom.get_position_delta(),
-//                                       g2.visual_odom.get_confidence());
+
     }
 }
 // end SD
