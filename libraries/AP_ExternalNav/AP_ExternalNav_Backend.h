@@ -29,8 +29,11 @@ public:
 
 protected:
 
-    // set deltas (used by backend to update state)
-    void set_deltas(const Vector3f &angle_delta, const Vector3f& position_delta, uint64_t time_delta_usec, float confidence);
+    // set estimate (used by backend to update state)
+    void set_estimate(bool scale_unknown, bool frame_is_NED,
+            const Vector3f &sensor_offset, const Vector3f &position_estimate, const Quaternion &orientation_estimate,
+            float position_error, float orientation_error,
+            uint32_t source_timestamp_ms, uint32_t last_reset_ms);
 
 private:
 

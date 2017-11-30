@@ -32,7 +32,11 @@ void AP_ExternalNav_MAV::handle_msg(mavlink_message_t *msg)
     mavlink_ext_nav_t packet;
     mavlink_msg_ext_nav_decode(msg, &packet);
 
-//    const Vector3f angle_delta(packet.angle_delta[0], packet.angle_delta[1], packet.angle_delta[2]);
-//    const Vector3f position_delta(packet.position_delta[0], packet.position_delta[1], packet.position_delta[2]);
-//    set_deltas(angle_delta, position_delta, packet.time_delta_usec, packet.confidence);
+    const Vector3f sensor_offset(packet.offset_x, packet.offset_y, packet.offset_z );
+    const Vector3f position_estimate(packet.pos_x, packet.pos_y, packet.pos_z);
+    const Quaternion orientation_estimate(packet.quat_q1, packet.quat_q2, packet.quat_q3, packet.quat_q4);
+    set_estimate(packet.scale_unknown, packet.frame_is_NED,
+                 sensor_offset, position_estimate, orientation_estimate,
+                 packet.pos_error, packet.ang_error,
+                 packet.time_measurement_msec, packet.time_reset_msec);
 }

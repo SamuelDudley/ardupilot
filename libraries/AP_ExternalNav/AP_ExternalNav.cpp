@@ -23,37 +23,11 @@ extern const AP_HAL::HAL &hal;
 const AP_Param::GroupInfo AP_ExternalNav::var_info[] = {
 
     // @Param: _TYPE
-    // @DisplayName: Visual odometry camera connection type
-    // @Description: Visual odometry camera connection type
+    // @DisplayName: External navigation sensor connection type
+    // @Description: External navigation sensor connection type
     // @Values: 0:None,1:MAV
     // @User: Advanced
     AP_GROUPINFO("_TYPE", 0, AP_ExternalNav, _type, 0),
-
-    // @Param: _POS_X
-    // @DisplayName: Visual odometry camera X position offset
-    // @Description: X position of the camera in body frame. Positive X is forward of the origin.
-    // @Units: m
-    // @User: Advanced
-
-    // @Param: _POS_Y
-    // @DisplayName: Visual odometry camera Y position offset
-    // @Description: Y position of the camera in body frame. Positive Y is to the right of the origin.
-    // @Units: m
-    // @User: Advanced
-
-    // @Param: _POS_Z
-    // @DisplayName: Visual odometry camera Z position offset
-    // @Description: Z position of the camera in body frame. Positive Z is down from the origin.
-    // @Units: m
-    // @User: Advanced
-    AP_GROUPINFO("_POS", 1, AP_ExternalNav, _pos_offset, 0.0f),
-
-    // @Param: _ORIENT
-    // @DisplayName: Visual odometery camera orientation
-    // @Description: Visual odometery camera orientation
-    // @Values: 0:Forward, 2:Right, 4:Back, 6:Left, 24:Up, 25:Down
-    // @User: Advanced
-    AP_GROUPINFO("_ORIENT", 2, AP_ExternalNav, _orientation, ROTATION_NONE),
 
     AP_GROUPEND
 };

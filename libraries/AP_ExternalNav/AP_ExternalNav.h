@@ -39,10 +39,15 @@ public:
 
     // The ExternalNavState structure is filled in by the backend driver
     struct ExternalNavState {
-        Vector3f angle_delta;       // attitude delta (in radians) of most recent update
-        Vector3f position_delta;    // position delta (in meters) of most recent update
-        uint64_t time_delta_usec;   // time delta (in usec) between previous and most recent update
-        float confidence;           // confidence expressed as a value from 0 (no confidence) to 100 (very confident)
+        bool scale_unknown;
+        bool frame_is_NED;
+        Vector3f sensor_offset;
+        Vector3f position_estimate;
+        Quaternion orientation_estimate;
+        float position_error;
+        float orientation_error;
+        uint32_t source_timestamp_ms;
+        uint32_t last_reset_ms;
         uint32_t last_update_ms;    // system time (in milliseconds) of last update from sensor
     };
 
@@ -56,14 +61,17 @@ public:
     bool healthy() const;
 
     // state accessors
-    const Vector3f &get_angle_delta() const { return _state.angle_delta; }
-    const Vector3f &get_position_delta() const { return _state.position_delta; }
-    uint64_t get_time_delta_usec() const { return _state.time_delta_usec; }
-    float get_confidence() const { return _state.confidence; }
-    uint32_t get_last_update_ms() const { return _state.last_update_ms; }
-
+    bool get_scale_flag() const { return _state.scale_unknown; }
+    bool get_ned_flag() const { return _state.frame_is_NED; }
     // return a 3D vector defining the position offset of the camera in meters relative to the body frame origin
-    const Vector3f &get_pos_offset(void) const { return _pos_offset; }
+    const Vector3f &get_sensor_offset() const { return _state.sensor_offset; }
+    const Vector3f &get_position_estimate() const { return _state.position_estimate; }
+    const Quaternion &get_orientation_estimate() const { return _state.orientation_estimate; }
+    float get_position_error() const { return _state.position_error; }
+    float get_orientation_error() const { return _state.orientation_error; }
+    uint32_t get_source_timestamp_ms() const { return _state.source_timestamp_ms; }
+    uint32_t get_last_reset_ms() const { return _state.last_reset_ms; }
+    uint32_t get_last_update_ms() const { return _state.last_update_ms; }
 
     // consume VISUAL_POSITION_DELTA data from MAVLink messages
     void handle_msg(mavlink_message_t *msg);
@@ -74,8 +82,6 @@ private:
 
     // parameters
     AP_Int8 _type;
-    AP_Vector3f _pos_offset;    // position offset of the camera in the body frame
-    AP_Int8 _orientation;       // camera orientation on vehicle frame
 
     // reference to backends
     AP_ExternalNav_Backend *_driver;

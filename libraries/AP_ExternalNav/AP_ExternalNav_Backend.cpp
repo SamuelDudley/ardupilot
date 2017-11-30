@@ -25,17 +25,20 @@ AP_ExternalNav_Backend::AP_ExternalNav_Backend(AP_ExternalNav &frontend) :
 }
 
 // set deltas (used by backend to update state)
-void AP_ExternalNav_Backend::set_deltas(const Vector3f &angle_delta, const Vector3f& position_delta, uint64_t time_delta_usec, float confidence)
+void AP_ExternalNav_Backend::set_estimate(bool scale_unknown, bool frame_is_NED,
+            const Vector3f &sensor_offset, const Vector3f &position_estimate, const Quaternion &orientation_estimate,
+            float position_error, float orientation_error,
+            uint32_t source_timestamp_ms, uint32_t last_reset_ms)
 {
-    // rotate and store angle_delta
-    _frontend._state.angle_delta = angle_delta;
-    _frontend._state.angle_delta.rotate((enum Rotation)_frontend._orientation.get());
+    _frontend._state.scale_unknown = scale_unknown;
+    _frontend._state.frame_is_NED = frame_is_NED;
+    _frontend._state.sensor_offset = sensor_offset;
+    _frontend._state.position_estimate = position_estimate;
+    _frontend._state.orientation_estimate = orientation_estimate;
+    _frontend._state.position_error = position_error;
+    _frontend._state.orientation_error = orientation_error;
+    _frontend._state.source_timestamp_ms = source_timestamp_ms;
+    _frontend._state.last_reset_ms = last_reset_ms;
 
-    // rotate and store position_delta
-    _frontend._state.position_delta = position_delta;
-    _frontend._state.position_delta.rotate((enum Rotation)_frontend._orientation.get());
-
-    _frontend._state.time_delta_usec = time_delta_usec;
-    _frontend._state.confidence = confidence;
     _frontend._state.last_update_ms = AP_HAL::millis();
 }
