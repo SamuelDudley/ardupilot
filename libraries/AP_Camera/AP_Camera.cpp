@@ -535,7 +535,7 @@ void AP_Camera::log_feedback() {
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_PX4 || CONFIG_HAL_BOARD == HAL_BOARD_SITL
 void AP_Camera::snapshot_ahrs() {
-    _camera_feedback_time = AP_HAL::micros64();
+    _camera_feedback_time = AP_HAL::millis(); //AP_HAL::micros64();
     _image_index++;
     // copy the data locally
     memcpy(&AP_Camera::_ahrs_summary, &AP_AHRS::summary[AP_AHRS::summary_index], sizeof(AP_Camera::_ahrs_summary));
